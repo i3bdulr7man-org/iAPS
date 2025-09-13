@@ -6,8 +6,6 @@ extension BolusCalculatorConfig {
         @Published var useCalc: Bool = true
         @Published var fattyMeals: Bool = false
         @Published var fattyMealFactor: Decimal = 0
-        @Published var fastMeals: Bool = false
-        @Published var fastMealFactor: Decimal = 0
         @Published var insulinReqPercentage: Decimal = 70
         @Published var displayPredictions: Bool = true
         @Published var allowBolusShortcut: Bool = false
@@ -27,7 +25,6 @@ extension BolusCalculatorConfig {
             subscribeSetting(\.allowBolusShortcut, on: $allowBolusShortcut) { allowBolusShortcut = $0 }
             subscribeSetting(\.useCalc, on: $useCalc) { useCalc = $0 }
             subscribeSetting(\.fattyMeals, on: $fattyMeals) { fattyMeals = $0 }
-            subscribeSetting(\.fastMeals, on: $fastMeals) { fastMeals = $0 }
             subscribeSetting(\.eventualBG, on: $eventualBG) { eventualBG = $0 }
             subscribeSetting(\.minumimPrediction, on: $minumimPrediction) { minumimPrediction = $0 }
             subscribeSetting(\.displayPredictions, on: $displayPredictions) { displayPredictions = $0 }
@@ -35,12 +32,6 @@ extension BolusCalculatorConfig {
             subscribeSetting(\.fattyMealFactor, on: $fattyMealFactor, initial: {
                 let value = max(min($0, 1.5), 0.1)
                 fattyMealFactor = value
-            }, map: {
-                $0
-            })
-            subscribeSetting(\.fastMealFactor, on: $fastMealFactor, initial: {
-                let value = max(min($0, 1.5), 0.8)
-                fastMealFactor = value
             }, map: {
                 $0
             })

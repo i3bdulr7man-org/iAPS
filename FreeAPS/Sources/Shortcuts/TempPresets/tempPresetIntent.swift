@@ -4,27 +4,28 @@ import Intents
 import Swinject
 
 struct tempPreset: AppEntity, Identifiable {
-    static let defaultQuery = tempPresetsQuery()
+    static var defaultQuery = tempPresetsQuery()
 
-    let id: UUID
-    let name: String
-    let targetTop: Decimal?
-    let targetBottom: Decimal?
-    let duration: Decimal
+    var id: UUID
+    var name: String
+    var targetTop: Decimal?
+    var targetBottom: Decimal?
+    var duration: Decimal
 
     var displayRepresentation: DisplayRepresentation {
         DisplayRepresentation(title: "\(name)")
     }
 
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Presets"
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Presets"
 
     static func convert(_ tempTarget: TempTarget) -> tempPreset {
-        tempPreset(
+        var tp = tempPreset(
             id: UUID(uuidString: tempTarget.id)!,
             name: tempTarget.displayName,
-            targetTop: tempTarget.targetTop,
-            targetBottom: tempTarget.targetBottom,
             duration: tempTarget.duration
         )
+        tp.targetTop = tempTarget.targetTop
+        tp.targetBottom = tempTarget.targetBottom
+        return tp
     }
 }
