@@ -14,13 +14,13 @@ extension AutoISF.StateModel {
         smbDeliveryRatioBGrange = 0
         smbDeliveryRatioMin = 0.5
         smbDeliveryRatioMax = 0.5
-        autoISFhourlyChange = 1
+        autoISFhourlyChange = 0.2
         higherISFrangeWeight = 0
         lowerISFrangeWeight = 0
         postMealISFweight = 0.01
         bgAccelISFweight = 0
         bgBrakeISFweight = 0.10
-        iobThresholdPercent = 100
+        iobThresholdPercent = 60
 
         // iTime_Start_Bolus = 1.5
         // b30targetLevel = 100
