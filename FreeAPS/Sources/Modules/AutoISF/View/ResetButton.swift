@@ -21,10 +21,3 @@ struct ResetButton: View {
         }
     }
 }
-
-//
-//  ResetButton.swift
-//  FreeAPS
-//
-//  Created by Abdulrahman Alfantokh on 14/09/2025.
-//
