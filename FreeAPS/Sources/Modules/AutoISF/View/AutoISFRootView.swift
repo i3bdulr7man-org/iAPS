@@ -259,11 +259,11 @@ extension AutoISF {
                             DecimalTextField("0", value: $state.iobThresholdPercent, formatter: formatter)
                                 .disabled(isPresented)
                         }
-                        Button(role: .destructive) {
-                            showAutoISFResetDialog = true
-                        } label: {
-                            Text("Reset AutoISF defaults")
-                                .frame(maxWidth: .infinity, alignment: .center)
+                        ResetButton(
+                            title: "Reset AutoISF defaults",
+                            message: "This will restore all AutoISF settings to their default values."
+                        ) {
+                            state.resetAutoISFDefaults()
                         }
 
                     } header: { Text("Settings") }
@@ -380,23 +380,11 @@ extension AutoISF {
                                 DecimalTextField("0", value: $state.b30_duration, formatter: formatter)
                                     .disabled(isPresented)
                             }
-                            Button(role: .destructive) {
-                                showB30ResetDialog = true
-                            } label: {
-                                Text("Reset B30 defaults")
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .confirmationDialog(
-                                "Are you sure?",
-                                isPresented: $showB30ResetDialog,
-                                titleVisibility: .visible
+                            ResetButton(
+                                title: "Reset B30 defaults",
+                                message: "This will restore all B30 settings to their default values."
                             ) {
-                                Button("Reset", role: .destructive) {
-                                    state.resetB30Defaults()
-                                }
-                                Button("Cancel", role: .cancel) {}
-                            } message: {
-                                Text("This will restore all B30 settings to their default values.")
+                                state.resetB30Defaults()
                             }
                         }
                     } header: { Text("B30 Settings") }
@@ -472,15 +460,11 @@ extension AutoISF {
                                         .disabled(isPresented)
                                 }
                             }
-                            Button(role: .destructive) {
-                                showKetoResetDialog = true
-                            } label: {
-                                Text("Reset Keto defaults")
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            }
-                            .confirmationDialog("Are you sure?", isPresented: $showKetoResetDialog) {
-                                Button("Reset", role: .destructive) { state.resetKetoDefaults() }
-                                Button("Cancel", role: .cancel) {}
+                            ResetButton(
+                                title: "Reset Keto defaults",
+                                message: "This will restore all Keto settings to their default values."
+                            ) {
+                                state.resetKetoDefaults()
                             }
                         }
                     } header: { Text("Keto Protection") }
@@ -505,14 +489,6 @@ extension AutoISF {
             .sheet(isPresented: $presentHistory) {
                 AutoISFHistoryView(units: state.units)
                     .environment(\.colorScheme, colorScheme)
-            }
-            .confirmationDialog("Are you sure?", isPresented: $showAutoISFResetDialog, titleVisibility: .visible) {
-                Button("Reset", role: .destructive) {
-                    state.resetAutoISFDefaults()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will restore all AutoISF settings to their default values.")
             }
         }
 

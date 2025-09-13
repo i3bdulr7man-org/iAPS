@@ -1,6 +1,6 @@
 extension AutoISF.StateModel {
     func resetAutoISFDefaults() {
-        autoisf = true
+        autoisf = false
         enableBGacceleration = true
         autoisf_min = 0.8
         autoisf_max = 1.2
