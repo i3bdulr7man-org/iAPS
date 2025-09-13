@@ -14,6 +14,9 @@ extension AutoISF {
         @State var graphics: (any View)?
         @State var presentHistory = false
         @State private var showResetDialog = false
+        @State private var showAutoISFResetDialog = false
+        @State private var showB30ResetDialog = false
+        @State private var showKetoResetDialog = false
 
         @Environment(\.colorScheme) var colorScheme
         @Environment(\.sizeCategory) private var fontSize
@@ -257,7 +260,7 @@ extension AutoISF {
                                 .disabled(isPresented)
                         }
                         Button(role: .destructive) {
-                            showResetDialog = true
+                            showAutoISFResetDialog = true
                         } label: {
                             Text("Reset AutoISF defaults")
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -377,6 +380,24 @@ extension AutoISF {
                                 DecimalTextField("0", value: $state.b30_duration, formatter: formatter)
                                     .disabled(isPresented)
                             }
+                            Button(role: .destructive) {
+                                showB30ResetDialog = true
+                            } label: {
+                                Text("Reset B30 defaults")
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                            .confirmationDialog(
+                                "Are you sure?",
+                                isPresented: $showB30ResetDialog,
+                                titleVisibility: .visible
+                            ) {
+                                Button("Reset", role: .destructive) {
+                                    state.resetB30Defaults()
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("This will restore all B30 settings to their default values.")
+                            }
                         }
                     } header: { Text("B30 Settings") }
 
@@ -451,6 +472,16 @@ extension AutoISF {
                                         .disabled(isPresented)
                                 }
                             }
+                            Button(role: .destructive) {
+                                showKetoResetDialog = true
+                            } label: {
+                                Text("Reset Keto defaults")
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                            .confirmationDialog("Are you sure?", isPresented: $showKetoResetDialog) {
+                                Button("Reset", role: .destructive) { state.resetKetoDefaults() }
+                                Button("Cancel", role: .cancel) {}
+                            }
                         }
                     } header: { Text("Keto Protection") }
 
@@ -475,9 +506,9 @@ extension AutoISF {
                 AutoISFHistoryView(units: state.units)
                     .environment(\.colorScheme, colorScheme)
             }
-            .confirmationDialog("Are you sure?", isPresented: $showResetDialog, titleVisibility: .visible) {
+            .confirmationDialog("Are you sure?", isPresented: $showAutoISFResetDialog, titleVisibility: .visible) {
                 Button("Reset", role: .destructive) {
-                    state.resetToDefaults()
+                    state.resetAutoISFDefaults()
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -548,7 +579,7 @@ extension AutoISF {
                     }.listRowSpacing(10)
                 }
             }
-            
+
             .padding(.all, 20)
             .foregroundStyle(colorScheme == .dark ? IAPSconfig.previewBackgroundLight : IAPSconfig.previewBackgroundDark)
             .background(
