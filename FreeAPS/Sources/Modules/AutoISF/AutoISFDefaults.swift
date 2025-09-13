@@ -1,14 +1,7 @@
 extension AutoISF.StateModel {
-    func resetToDefaults() {
-        // Bools
+    func resetAutoISFDefaults() {
         autoisf = true
         enableBGacceleration = true
-        // use_B30 = false
-        // ketoProtect = false
-        // variableKetoProtect = false
-        // ketoProtectAbsolut = false
-
-        // Decimals
         autoisf_min = 0.8
         autoisf_max = 1.2
         smbDeliveryRatioBGrange = 0
@@ -21,18 +14,23 @@ extension AutoISF.StateModel {
         bgAccelISFweight = 0
         bgBrakeISFweight = 0.10
         iobThresholdPercent = 60
+    }
 
-        // iTime_Start_Bolus = 1.5
-        // b30targetLevel = 100
-        // b30upperLimit = 130
-        // b30upperdelta = 8
-        // b30factor = 5
-        // b30_duration = 30
+    func resetB30Defaults() {
+        use_B30 = false
+        iTime_Start_Bolus = 1.5
+        b30targetLevel = 100
+        b30upperLimit = 130
+        b30upperdelta = 8
+        b30factor = 5
+        b30_duration = 30
+    }
 
-        // ketoProtectBasalPercent = 20
-        // ketoProtectBasalAbsolut = 0
-
-        // Units
-        // units = .mgdL
+    func resetKetoDefaults() {
+        ketoProtect = false
+        variableKetoProtect = false
+        ketoProtectAbsolut = false
+        ketoProtectBasalPercent = 20
+        ketoProtectBasalAbsolut = 0
     }
 }
