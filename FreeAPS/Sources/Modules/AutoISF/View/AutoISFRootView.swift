@@ -19,7 +19,6 @@ extension AutoISF {
         @State private var showB30ResetDialog = false
         @State private var showKetoResetDialog = false
 
-
         @Environment(\.colorScheme) var colorScheme
         @Environment(\.sizeCategory) private var fontSize
         @Environment(\.dismiss) private var dismiss
