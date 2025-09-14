@@ -14,10 +14,12 @@ extension AutoISF {
         @State var graphics: (any View)?
         @State var presentHistory = false
 
+
         @State private var showResetDialog = false
         @State private var showAutoISFResetDialog = false
         @State private var showB30ResetDialog = false
         @State private var showKetoResetDialog = false
+
 
 
         @Environment(\.colorScheme) var colorScheme
@@ -262,6 +264,7 @@ extension AutoISF {
                             DecimalTextField("0", value: $state.iobThresholdPercent, formatter: formatter)
                                 .disabled(isPresented)
                         }
+
 
                         ResetButton(
                             title: "Reset AutoISF defaults",
