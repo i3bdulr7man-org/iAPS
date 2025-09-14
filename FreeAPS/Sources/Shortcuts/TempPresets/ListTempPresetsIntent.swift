@@ -3,10 +3,10 @@ import Foundation
 
 struct ListTempPresetsIntent: AppIntent {
     // Title of the action in the Shortcuts app
-    static let title: LocalizedStringResource = "Choose Temporary Presets"
+    static var title: LocalizedStringResource = "Choose Temporary Presets"
 
     // Description of the action in the Shortcuts app
-    static let description = IntentDescription(
+    static var description = IntentDescription(
         "Allow to list and choose a specific temporary Preset.",
         categoryName: "Navigation"
     )
@@ -25,15 +25,19 @@ struct ListTempPresetsIntent: AppIntent {
 }
 
 struct tempPresetsQuery: EntityQuery {
+    internal var intentRequest: TempPresetsIntentRequest
+
+    init() {
+        intentRequest = TempPresetsIntentRequest()
+    }
+
     func entities(for identifiers: [tempPreset.ID]) async throws -> [tempPreset] {
-        let request = TempPresetsIntentRequest()
-        let tempTargets = request.fetchIDs(identifiers)
+        let tempTargets = intentRequest.fetchIDs(identifiers)
         return tempTargets
     }
 
     func suggestedEntities() async throws -> [tempPreset] {
-        let request = TempPresetsIntentRequest()
-        let tempTargets = request.fetchAll()
+        let tempTargets = intentRequest.fetchAll()
         return tempTargets
     }
 }

@@ -14,9 +14,16 @@ extension AutoISF {
         @State var graphics: (any View)?
         @State var presentHistory = false
 
+        @State private var showResetDialog = false
+        @State private var showAutoISFResetDialog = false
+        @State private var showB30ResetDialog = false
+        @State private var showKetoResetDialog = false
+
+
         @Environment(\.colorScheme) var colorScheme
         @Environment(\.sizeCategory) private var fontSize
         @Environment(\.dismiss) private var dismiss
+        @Environment(\.authenticate) var authenticate
 
         @FetchRequest(
             entity: Reasons.entity(),
@@ -255,6 +262,22 @@ extension AutoISF {
                             DecimalTextField("0", value: $state.iobThresholdPercent, formatter: formatter)
                                 .disabled(isPresented)
                         }
+
+                        ResetButton(
+                            title: "Reset AutoISF defaults",
+                            message: "This will restore all AutoISF settings to their default values."
+                        ) {
+                            authenticate("Authentication required to reset AutoISF settings") { result in
+                                switch result {
+                                case .success:
+                                    state.resetAutoISFDefaults()
+                                case let .failure(error):
+                                    print("Authentication failed: \(error.localizedDescription)")
+                                }
+                            }
+                        }
+
+
                     } header: { Text("Settings") }
 
                     Section {
@@ -369,6 +392,19 @@ extension AutoISF {
                                 DecimalTextField("0", value: $state.b30_duration, formatter: formatter)
                                     .disabled(isPresented)
                             }
+                            ResetButton(
+                                title: "Reset B30 defaults",
+                                message: "This will restore all B30 settings to their default values."
+                            ) {
+                                authenticate("Authentication required to reset AutoISF settings") { result in
+                                    switch result {
+                                    case .success:
+                                        state.resetB30Defaults()
+                                    case let .failure(error):
+                                        print("Authentication failed: \(error.localizedDescription)")
+                                    }
+                                }
+                            }
                         }
                     } header: { Text("B30 Settings") }
 
@@ -441,6 +477,19 @@ extension AutoISF {
                                     Spacer()
                                     DecimalTextField("0", value: $state.ketoProtectBasalAbsolut, formatter: formatter)
                                         .disabled(isPresented)
+                                }
+                            }
+                            ResetButton(
+                                title: "Reset Keto defaults",
+                                message: "This will restore all Keto settings to their default values."
+                            ) {
+                                authenticate("Authentication required to reset AutoISF settings") { result in
+                                    switch result {
+                                    case .success:
+                                        state.resetKetoDefaults()
+                                    case let .failure(error):
+                                        print("Authentication failed: \(error.localizedDescription)")
+                                    }
                                 }
                             }
                         }
