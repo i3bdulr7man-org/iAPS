@@ -21,6 +21,7 @@ extension AutoISF {
         @Environment(\.colorScheme) var colorScheme
         @Environment(\.sizeCategory) private var fontSize
         @Environment(\.dismiss) private var dismiss
+        @Environment(\.authenticate) var authenticate
 
         @FetchRequest(
             entity: Reasons.entity(),
@@ -263,7 +264,14 @@ extension AutoISF {
                             title: "Reset AutoISF defaults",
                             message: "This will restore all AutoISF settings to their default values."
                         ) {
-                            state.resetAutoISFDefaults()
+                            authenticate("Authentication required to reset AutoISF settings") { result in
+                                switch result {
+                                case .success:
+                                    state.resetAutoISFDefaults()
+                                case let .failure(error):
+                                    print("Authentication failed: \(error.localizedDescription)")
+                                }
+                            }
                         }
 
                     } header: { Text("Settings") }
@@ -384,7 +392,14 @@ extension AutoISF {
                                 title: "Reset B30 defaults",
                                 message: "This will restore all B30 settings to their default values."
                             ) {
-                                state.resetB30Defaults()
+                                authenticate("Authentication required to reset AutoISF settings") { result in
+                                    switch result {
+                                    case .success:
+                                        state.resetB30Defaults()
+                                    case let .failure(error):
+                                        print("Authentication failed: \(error.localizedDescription)")
+                                    }
+                                }
                             }
                         }
                     } header: { Text("B30 Settings") }
@@ -464,7 +479,14 @@ extension AutoISF {
                                 title: "Reset Keto defaults",
                                 message: "This will restore all Keto settings to their default values."
                             ) {
-                                state.resetKetoDefaults()
+                                authenticate("Authentication required to reset AutoISF settings") { result in
+                                    switch result {
+                                    case .success:
+                                        state.resetKetoDefaults()
+                                    case let .failure(error):
+                                        print("Authentication failed: \(error.localizedDescription)")
+                                    }
+                                }
                             }
                         }
                     } header: { Text("Keto Protection") }
