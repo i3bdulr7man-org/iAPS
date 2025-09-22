@@ -112,6 +112,18 @@ extension AddCarbs {
                             label: { Image(systemName: "plus.circle") }.tint(.blue).buttonStyle(.borderless)
                         }
                     }
+                    // Notes
+                    Section {
+                        HStack {
+                            Image(systemName: "square.and.pencil")
+                            TextField(
+                                String(localized: "Note..."),
+                                text: $state.note,
+                                prompt: Text("Note...")
+                            )
+                            .disableAutocorrection(true)
+                        }
+                    }
                 }
                 // Optional Hypo Treatment
                 if state.carbs > 0, let profile = state.id, profile != "None", state.carbsRequired != nil {
