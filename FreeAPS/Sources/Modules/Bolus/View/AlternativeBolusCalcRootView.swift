@@ -194,6 +194,28 @@ extension Bolus {
                     }
                 }
 
+                Section {
+                    HStack {
+                        Image(systemName: "square.and.pencil")
+                        TextField(
+                            String(localized: "Note..."),
+                            text: $state.note,
+                            prompt: Text("Note...")
+                        )
+                        .disableAutocorrection(true)
+                        .focused($isFocused)
+
+                        if isFocused && !state.note.isEmpty {
+                            Button {
+                                isFocused = false
+                            } label: {
+                                Image(systemName: "keyboard.chevron.compact.down")
+                            }
+                            .controlSize(.mini)
+                        }
+                    }
+                }
+
                 if state.amount > 0 {
                     Section {
                         Button {
