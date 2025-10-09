@@ -6,14 +6,10 @@ struct FreeAPSSettings: JSON, Equatable {
     var allowAnnouncements: Bool = false
     var useAutotune: Bool = false
     var isUploadEnabled: Bool = false
-    var useLocalGlucoseSource: Bool = false
-    var localGlucosePort: Int = 8080
     var debugOptions: Bool = false
     var insulinReqPercentage: Decimal = 70
     var skipBolusScreenAfterCarbs: Bool = false
     var displayHR: Bool = false
-    var cgm: CGMType = .nightscout
-    var uploadGlucose: Bool = true
     var useCalendar: Bool = false
     var displayCalendarIOBandCOB: Bool = false
     var displayCalendarEmojis: Bool = false
@@ -83,7 +79,6 @@ struct FreeAPSSettings: JSON, Equatable {
     var minumimPrediction: Bool = false
     var minimumSMB: Decimal = 0.3
     var useInsulinBars: Bool = false
-    var disableCGMError: Bool = true
     var skipGlucoseChart: Bool = false
     var birthDate = Date.distantPast
     var sexSetting: Int = 3
@@ -139,6 +134,26 @@ struct FreeAPSSettings: JSON, Equatable {
     var ketoProtectBasalPercent: Decimal = 20
     var ketoProtectAbsolut: Bool = false
     var ketoProtectBasalAbsolut: Decimal = 0
+    // 1-min loops
+    var allowOneMinuteLoop: Bool = false // allow running loops every minute
+    var allowOneMinuteGlucose: Bool = false // allow sending 1-minute readings to oref, even if loops are with 5-minute intervals
+    var backFillIntervall: Int = 1
+    // AI Food Search Variablen
+    var aiProvider: String = "Basic Analysis (Free)"
+    var claudeAPIKey: String = ""
+    var claudeQuery: String = ""
+    var openAIQuery: String = ""
+    var openAIAPIKey: String = ""
+    var googleGeminiAPIKey: String = ""
+    var googleGeminiQuery: String = ""
+    var textSearchProvider: String = "USDA FoodData Central"
+    var barcodeSearchProvider: String = "OpenFoodFacts"
+    var aiImageProvider: String = "OpenAI (ChatGPT API)"
+    var analysisMode: String = "standard"
+    var foodSearchEnabled: Bool = false
+    var advancedDosingRecommendationsEnabled: Bool = false
+    var useGPT5ForOpenAI: Bool = false
+    var ai: Bool = true
 }
 
 extension FreeAPSSettings: Decodable {
@@ -165,14 +180,6 @@ extension FreeAPSSettings: Decodable {
 
         if let isUploadEnabled = try? container.decode(Bool.self, forKey: .isUploadEnabled) {
             settings.isUploadEnabled = isUploadEnabled
-        }
-
-        if let useLocalGlucoseSource = try? container.decode(Bool.self, forKey: .useLocalGlucoseSource) {
-            settings.useLocalGlucoseSource = useLocalGlucoseSource
-        }
-
-        if let localGlucosePort = try? container.decode(Int.self, forKey: .localGlucosePort) {
-            settings.localGlucosePort = localGlucosePort
         }
 
         if let debugOptions = try? container.decode(Bool.self, forKey: .debugOptions) {
@@ -215,14 +222,6 @@ extension FreeAPSSettings: Decodable {
 
         if let displayOnWatch = try? container.decode(AwConfig.self, forKey: .displayOnWatch) {
             settings.displayOnWatch = displayOnWatch
-        }
-
-        if let cgm = try? container.decode(CGMType.self, forKey: .cgm) {
-            settings.cgm = cgm
-        }
-
-        if let uploadGlucose = try? container.decode(Bool.self, forKey: .uploadGlucose) {
-            settings.uploadGlucose = uploadGlucose
         }
 
         if let useCalendar = try? container.decode(Bool.self, forKey: .useCalendar) {
@@ -512,10 +511,6 @@ extension FreeAPSSettings: Decodable {
             settings.useInsulinBars = useInsulinBars
         }
 
-        if let disableCGMError = try? container.decode(Bool.self, forKey: .disableCGMError) {
-            settings.disableCGMError = disableCGMError
-        }
-
         if let skipGlucoseChart = try? container.decode(Bool.self, forKey: .skipGlucoseChart) {
             settings.skipGlucoseChart = skipGlucoseChart
         }
@@ -681,6 +676,81 @@ extension FreeAPSSettings: Decodable {
 
         if let ketoProtectAbsolut = try? container.decode(Bool.self, forKey: .ketoProtectAbsolut) {
             settings.ketoProtectAbsolut = ketoProtectAbsolut
+        }
+
+        // 1-minute loops
+        if let allowOneMinuteLoop = try? container.decode(Bool.self, forKey: .allowOneMinuteLoop) {
+            settings.allowOneMinuteLoop = allowOneMinuteLoop
+        }
+        if let allowOneMinuteGlucose = try? container.decode(Bool.self, forKey: .allowOneMinuteGlucose) {
+            settings.allowOneMinuteGlucose = allowOneMinuteGlucose
+        }
+
+        if let backFillIntervall = try? container.decode(Int.self, forKey: .backFillIntervall) {
+            settings.backFillIntervall = backFillIntervall
+        }
+
+        if let aiProvider = try? container.decode(String.self, forKey: .aiProvider) {
+            settings.aiProvider = aiProvider
+        }
+
+        if let claudeAPIKey = try? container.decode(String.self, forKey: .claudeAPIKey) {
+            settings.claudeAPIKey = claudeAPIKey
+        }
+
+        if let claudeQuery = try? container.decode(String.self, forKey: .claudeQuery) {
+            settings.claudeQuery = claudeQuery
+        }
+
+        if let openAIAPIKey = try? container.decode(String.self, forKey: .openAIAPIKey) {
+            settings.openAIAPIKey = openAIAPIKey
+        }
+
+        if let openAIQuery = try? container.decode(String.self, forKey: .openAIQuery) {
+            settings.openAIQuery = openAIQuery
+        }
+
+        if let googleGeminiAPIKey = try? container.decode(String.self, forKey: .googleGeminiAPIKey) {
+            settings.googleGeminiAPIKey = googleGeminiAPIKey
+        }
+
+        if let googleGeminiQuery = try? container.decode(String.self, forKey: .googleGeminiQuery) {
+            settings.googleGeminiQuery = googleGeminiQuery
+        }
+
+        if let textSearchProvider = try? container.decode(String.self, forKey: .textSearchProvider) {
+            settings.textSearchProvider = textSearchProvider
+        }
+
+        if let barcodeSearchProvider = try? container.decode(String.self, forKey: .barcodeSearchProvider) {
+            settings.barcodeSearchProvider = barcodeSearchProvider
+        }
+
+        if let aiImageProvider = try? container.decode(String.self, forKey: .aiImageProvider) {
+            settings.aiImageProvider = aiImageProvider
+        }
+
+        if let analysisMode = try? container.decode(String.self, forKey: .analysisMode) {
+            settings.analysisMode = analysisMode
+        }
+
+        if let foodSearchEnabled = try? container.decode(Bool.self, forKey: .foodSearchEnabled) {
+            settings.foodSearchEnabled = foodSearchEnabled
+        }
+
+        if let advancedDosingRecommendationsEnabled = try? container.decode(
+            Bool.self,
+            forKey: .advancedDosingRecommendationsEnabled
+        ) {
+            settings.advancedDosingRecommendationsEnabled = advancedDosingRecommendationsEnabled
+        }
+
+        if let useGPT5ForOpenAI = try? container.decode(Bool.self, forKey: .useGPT5ForOpenAI) {
+            settings.useGPT5ForOpenAI = useGPT5ForOpenAI
+        }
+
+        if let ai = try? container.decode(Bool.self, forKey: .ai) {
+            settings.ai = ai
         }
 
         self = settings
