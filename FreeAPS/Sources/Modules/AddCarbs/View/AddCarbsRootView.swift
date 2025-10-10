@@ -65,6 +65,7 @@ extension AddCarbs {
             return formatter
         }
 
+        @FocusState private var isFocused: Bool
         var body: some View {
             Form {
                 // AI Food Search
@@ -138,6 +139,27 @@ extension AddCarbs {
                                 state.date = state.date.addingTimeInterval(15.minutes.timeInterval)
                             }
                             label: { Image(systemName: "plus.circle") }.tint(.blue).buttonStyle(.borderless)
+                        }
+                    }
+                }
+                // Notes
+                Section {
+                    HStack {
+                        Image(systemName: "square.and.pencil")
+                        TextField(
+                            String(localized: "Note..."),
+                            text: $state.note,
+                            prompt: Text("Note...")
+                        )
+                        .disableAutocorrection(true)
+                        .focused($isFocused)
+                        if isFocused && !state.note.isEmpty {
+                            Button {
+                                isFocused = false
+                            } label: {
+                                Image(systemName: "keyboard.chevron.compact.down")
+                            }
+                            .controlSize(.mini)
                         }
                     }
                 }
