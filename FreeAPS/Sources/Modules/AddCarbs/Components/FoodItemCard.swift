@@ -163,9 +163,9 @@ struct FoodItemCard: View {
                         .font(.system(size: 10))
                 }
                 VStack(spacing: 2) {
-                    Text("\(value, specifier: "%.1f")\(unit)")
+                    Text("\(value, specifier: "%.1f")\(NSLocalizedString(unit, comment: ""))")
                         .font(.system(size: 12, weight: .bold))
-                    Text(label)
+                    Text(NSLocalizedString(label, comment: ""))
                         .font(.system(size: 10, weight: .medium))
                 }
             }

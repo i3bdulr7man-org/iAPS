@@ -11,9 +11,9 @@ struct NutritionSummaryBadge: View {
             Text("\(value, specifier: "%.0f")")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(color)
-            Text(unit)
+            Text(NSLocalizedString(unit, comment: ""))
                 .font(.system(size: 10))
-            Text(label)
+            Text(NSLocalizedString(label, comment: ""))
                 .font(.system(size: 10, weight: .medium))
                 .multilineTextAlignment(.center)
         }
