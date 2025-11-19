@@ -1610,7 +1610,7 @@ Je kunt maar één app tegelijk gebruiken die via bluetooth met de sensor commun
 
 "• Use simple, common food names" = "• Gebruik eenvoudige en gangbare voedingsnamen";
 
-"• Try brand names (e.g., \"Cheerios\")" = "• Try brand names (e.g., \"Cheerios\")";
+"• Try brand names (e.g., \"Cheerios\")" = "• Probeer merknamen (bijv. \"Heinz\" of \"Chiquita 🍌)";
 
 "💡 Search Tips:" = "💡 Zoek tips:";
 
@@ -1626,43 +1626,83 @@ Je kunt maar één app tegelijk gebruiken die via bluetooth met de sensor commun
 
 "Searching foods" = "Voedsel zoeken";
 
-"AI Analysis" = "AI Analysis";
+"AI Analysis" = "AI-analyse";
 
-"Analysis Status" = "Analysis Status";
+"Analysis Status" = "Status analyse";
 
-"❌ Analysis failed" = "❌ Analysis failed";
+"❌ Analysis failed" = "❌ Analyse mislukt";
 
-"⚠️ Connection interrupted..." = "⚠️ Connection interrupted...";
+"⚠️ Connection interrupted..." = "⚠️ Verbinding verbroken...";
 
-"✅ Analysis complete!" = "✅ Analysis complete!";
+"✅ Analysis complete!" = "✅ Analyse voltooid!";
 
-"🍽️ Generating nutrition summary..." = "🍽️ Generating nutrition summary...";
+"🍽️ Generating nutrition summary..." = "🍽️ Voedingssamenvatting genereren...";
 
-"📊 Processing analysis results..." = "📊 Processing analysis results...";
+"📊 Processing analysis results..." = "📊 Verwerken van analyse resultaten...";
 
-"🤖 Running AI vision analysis..." = "🤖 Running AI vision analysis...";
+"🤖 Running AI vision analysis..." = "🤖 Bezig met AI zichtanalyse...";
 
-"⚖️ Comparing to USDA standards..." = "⚖️ Comparing to USDA standards...";
+"⚖️ Comparing to USDA standards..." = "⚖️ Vergelijken naar USDA normen...";
 
-"📏 Calculating serving sizes..." = "📏 Calculating serving sizes...";
+"📏 Calculating serving sizes..." = "📏 Berekenen portiegroottes...";
 
-"🔬 Identifying food portions..." = "🔬 Identifying food portions...";
+"🔬 Identifying food portions..." = "🔬 Voedselporties identificeren...";
 
-"📊 Analyzing nutritional content..." = "📊 Analyzing nutritional content...";
+"📊 Analyzing nutritional content..." = "📊 Analyseren van voedingswaarde...";
 
-"📡 Uploading image for analysis..." = "📡 Uploading image for analysis...";
+"📡 Uploading image for analysis..." = "📡 Afbeelding uploaden voor analyse...";
 
-"🧠 Connecting to AI provider..." = "🧠 Connecting to AI provider...";
+"🧠 Connecting to AI provider..." = "🧠 Verbinding maken met AI provider...";
 
-"💼 Optimizing image quality..." = "💼 Optimizing image quality...";
+"💼 Optimizing image quality..." = "💼 Afbeeldingskwaliteit optimaliseren...";
 
-"📱 Processing image data..." = "📱 Processing image data...";
+"📱 Processing image data..." = "📱 Afbeeldingsgegevens verwerken...";
 
-"🔍 Initializing AI food analysis..." = "🔍 Initializing AI food analysis...";
+"🔍 Initializing AI food analysis..." = "🔍 Initialiseren AI voedsel analyse...";
 
-"Amount:" = "Amount:";
+"⚡ Processing AI analysis results..." = "⚡ Verwerken AI analyse resultaten...";
 
-"Take Over" = "Take Over";
+"📥 Received response from Claude..." = "📥 Reactie ontvangen van Claude...";
+
+"⏳ AI is cooking up results..." = "⏳ AI bereidt resultaten voor...";
+
+"🌐 Sending request to Claude..." = "🌐 Verzoek verzenden naar Claude...";
+
+"📡 Preparing API request..." = "📡 Voorbereiden van API-aanvraag...";
+
+"🔄 Encoding image data..." = "🔄 Afbeeldingsgegevens verwerken...";
+
+"🖼️ Optimizing your image..." = "🖼️ Je afbeelding wordt geoptimaliseerd...";
+
+"⚙️ Configuring Claude parameters..." = "⚙️ Claude parameters configureren...";
+
+"⚙️ Processing analysis results..." = "⚙️ Verwerken van analyse resultaten...";
+
+"📊 Calculating nutrition estimates..." = "📊 Berekenen van voedingswaarde voorspelling...";
+
+"🍽️ Identifying food characteristics..." = "🍽️ Kenmerken van voedsel identificeren...";
+
+"📱 Analyzing image properties..." = "📱 Afbeeldingen analyseren...";
+
+
+"📊 Initializing basic analysis...
+🤖 Connecting to Google Gemini..." = "🤖 Connecting to Google Gemini...";
+
+"📥 Received response from Gemini..." = "📥 Reactie ontvangen van Gemini...";
+
+"🌐 Sending request to Google Gemini..." = "🌐 Verzoek verzenden naar Google Gemini...";
+
+"🔄 Encoding image data..." = "🔄 Afbeeldingsgegevens verwerken...";
+
+"⚙️ Configuring Gemini parameters..." = "⚙️ Gemini-parameters configureren...";
+
+"📥 Received response from OpenAI..." = "📥 Reactie ontvangen van OpenAI...";
+
+"⏳ Doing a deep analysis (may take a bit)..." = "⏳ Maak een diepteanalyse (kan even duren)...";
+
+"Amount:" = "Hoeveelheid:";
+
+"Take Over" = "Overnemen";
 
 // --------- End of AI ---------
 /* */
@@ -3578,3 +3618,12 @@ Eenvoudig gezegd, de Dynamische Carb Ratio past de koolhydraatverhouding aan op 
 
 /* message displayed on home screen when the pump is added but not fully onboarded */
 "Re-connect pump!" = "Pomp opnieuw verbinden!";
+
+/* 'fetch' toggle label in nightscout settings */
+"Fetch" = "Verkrijg";
+
+/* 'fetch' section header in nightscout settings */
+"Allow Fetching" = "Ophalen toestaan";
+
+/* 'fetch' scection footer in nightscout settings */
+"iAPS will fetch announcements, carbs and temp targets from Nightscout" = "iAPS zal aankondigingen, koolhydraten en tijdelijke doelen ophalen van Nightscout";

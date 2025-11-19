@@ -1362,7 +1362,7 @@ Ak potrebujete používať skratky na podanie bolusu, uistite sa, že v nastaven
 "Show glucose on the app badge" = "Zobraziť glykémiu na ikone aplikácie";
 
 /* */
-"Backfill glucose" = "Doplniť glykémie";
+"Backfill glucose" = "Doplniť glykémiu";
 
 /* About this source */
 "About this source" = "Informácie o tomto zdroji";
@@ -1610,7 +1610,7 @@ Ak potrebujete používať skratky na podanie bolusu, uistite sa, že v nastaven
 
 "• Use simple, common food names" = "• Použiť jednoduché, bežné názvy potravín";
 
-"• Try brand names (e.g., \"Cheerios\")" = "• Try brand names (e.g., \"Cheerios\")";
+"• Try brand names (e.g., \"Cheerios\")" = "• Skúste názvy značiek (napr. „Chocapic“)";
 
 "💡 Search Tips:" = "💡 Tipy na vyhľadávanie:";
 
@@ -1628,37 +1628,77 @@ Ak potrebujete používať skratky na podanie bolusu, uistite sa, že v nastaven
 
 "AI Analysis" = "AI analýza";
 
-"Analysis Status" = "Analysis Status";
+"Analysis Status" = "Stav analýzy";
 
-"❌ Analysis failed" = "❌ Analysis failed";
+"❌ Analysis failed" = "❌ Analýza zlyhala";
 
-"⚠️ Connection interrupted..." = "⚠️ Connection interrupted...";
+"⚠️ Connection interrupted..." = "⚠️ Pripojenie bolo prerušené…";
 
-"✅ Analysis complete!" = "✅ Analysis complete!";
+"✅ Analysis complete!" = "✅ Analýza dokončená!";
 
-"🍽️ Generating nutrition summary..." = "🍽️ Generating nutrition summary...";
+"🍽️ Generating nutrition summary..." = "🍽️ Generujem súhrn výživových údajov...";
 
-"📊 Processing analysis results..." = "📊 Processing analysis results...";
+"📊 Processing analysis results..." = "📊 Spracovávam výsledky analýzy...";
 
-"🤖 Running AI vision analysis..." = "🤖 Running AI vision analysis...";
+"🤖 Running AI vision analysis..." = "🤖 Spúšťam analýzu pomocou AI videnia...";
 
-"⚖️ Comparing to USDA standards..." = "⚖️ Comparing to USDA standards...";
+"⚖️ Comparing to USDA standards..." = "⚖️ Porovnávam so štandardmi USDA...";
 
-"📏 Calculating serving sizes..." = "📏 Calculating serving sizes...";
+"📏 Calculating serving sizes..." = "📏 Vypočítavam porcie...";
 
-"🔬 Identifying food portions..." = "🔬 Identifying food portions...";
+"🔬 Identifying food portions..." = "🔬 Identifikujem porcie jedla...";
 
-"📊 Analyzing nutritional content..." = "📊 Analyzing nutritional content...";
+"📊 Analyzing nutritional content..." = "📊 Analyzujem výživový obsah...";
 
-"📡 Uploading image for analysis..." = "📡 Uploading image for analysis...";
+"📡 Uploading image for analysis..." = "📡 Nahrávam obrázok na analýzu...";
 
-"🧠 Connecting to AI provider..." = "🧠 Connecting to AI provider...";
+"🧠 Connecting to AI provider..." = "🧠 Pripájam sa k poskytovateľovi AI...";
 
-"💼 Optimizing image quality..." = "💼 Optimizing image quality...";
+"💼 Optimizing image quality..." = "💼 Optimalizujem kvalitu obrázka...";
 
-"📱 Processing image data..." = "📱 Processing image data...";
+"📱 Processing image data..." = "📱 Spracovávam obrazové dáta...";
 
-"🔍 Initializing AI food analysis..." = "🔍 Initializing AI food analysis...";
+"🔍 Initializing AI food analysis..." = "🔍 Inicializujem AI analýzu jedla...";
+
+"⚡ Processing AI analysis results..." = "⚡ Spracovanie výsledkov AI analýzy...";
+
+"📥 Received response from Claude..." = "📥 Prijatá odpoveď od Claude...";
+
+"⏳ AI is cooking up results..." = "⏳ AI pripravuje výsledky...";
+
+"🌐 Sending request to Claude..." = "🌐 Odosielanie požiadavky do Claude...";
+
+"📡 Preparing API request..." = "📡 Príprava API požiadavky...";
+
+"🔄 Encoding image data..." = "🔄 Kódovanie údajov obrázka...";
+
+"🖼️ Optimizing your image..." = "🖼️ Optimalizácia vášho obrázka...";
+
+"⚙️ Configuring Claude parameters..." = "⚙️ Konfigurácia parametrov Claude...";
+
+"⚙️ Processing analysis results..." = "⚙️ Spracovanie výsledkov analýzy...";
+
+"📊 Calculating nutrition estimates..." = "📊 Výpočet odhadov nutričných hodnôt...";
+
+"🍽️ Identifying food characteristics..." = "🍽️ Identifikácia charakteristík jedla...";
+
+"📱 Analyzing image properties..." = "📱 Analýza vlastností obrázka...";
+
+
+"📊 Initializing basic analysis...
+🤖 Connecting to Google Gemini..." = "🤖 Connecting to Google Gemini...";
+
+"📥 Received response from Gemini..." = "📥 Prijatá odpoveď od Gemini...";
+
+"🌐 Sending request to Google Gemini..." = "🌐 Odosielanie požiadavky do Google Gemini...";
+
+"🔄 Encoding image data..." = "🔄 Kódovanie údajov obrázka...";
+
+"⚙️ Configuring Gemini parameters..." = "⚙️ Konfigurácia parametrov Gemini...";
+
+"📥 Received response from OpenAI..." = "📥 Prijatá odpoveď od OpenAI...";
+
+"⏳ Doing a deep analysis (may take a bit)..." = "⏳ Robím hĺbkovú analýzu (môže to chvíľu trvať)...";
 
 "Amount:" = "Množstvo:";
 
@@ -3577,3 +3617,12 @@ Pri cieľovej_glykémii je pomer SMB rovný smb_delivery_ratio_min, pri cieľove
 
 /* message displayed on home screen when the pump is added but not fully onboarded */
 "Re-connect pump!" = "Znovu pripojte pumpu!";
+
+/* 'fetch' toggle label in nightscout settings */
+"Fetch" = "Načítať";
+
+/* 'fetch' section header in nightscout settings */
+"Allow Fetching" = "Povoliť načítanie";
+
+/* 'fetch' scection footer in nightscout settings */
+"iAPS will fetch announcements, carbs and temp targets from Nightscout" = "iAPS bude načítavať oznámenia, sacharidy a dočasné ciele z Nightscoutu";

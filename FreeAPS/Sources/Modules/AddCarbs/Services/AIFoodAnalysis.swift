@@ -28,7 +28,7 @@ class NetworkQualityMonitor: ObservableObject {
 
     private func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
+            DispatchQueue.global().async { [weak self] in
                 self?.isConnected = path.status == .satisfied
                 self?.isExpensive = path.isExpensive
                 self?.isConstrained = path.isConstrained
@@ -71,7 +71,10 @@ class NetworkQualityMonitor: ObservableObject {
 // MARK: - Timeout Helper
 
 /// Timeout wrapper for async operations
-private func withTimeoutForAnalysis<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+private func withTimeoutForAnalysis<T: Sendable>(
+    seconds: TimeInterval,
+    operation: @Sendable @escaping () async throws -> T
+) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         // Add the actual operation
         group.addTask {
@@ -1059,7 +1062,7 @@ extension Data {
 // MARK: - Configurable AI Service
 
 /// AI service that allows users to configure their own API keys
-class ConfigurableAIService: ObservableObject {
+class ConfigurableAIService: ObservableObject, @unchecked Sendable {
     // MARK: - Singleton
 
     static let shared = ConfigurableAIService()
@@ -2563,14 +2566,9 @@ class OpenAIFoodAnalysisService {
                                 assessmentNotes: extractString(from: itemData, keys: ["assessment_notes"])
                             )
                             detailedFoodItems.append(foodItem)
-                        } catch {
-                            print("⚠️ OpenAI: Error parsing food item \(index): \(error)")
-                            // Continue with other items - doesn't crash the whole analysis
                         }
                     }
                 }
-            } catch {
-                print("⚠️ OpenAI: Error in food items parsing: \(error)")
             }
 
             if let foodItemsStringArray = extractStringArray(from: nutritionData, keys: ["food_items"]) {
@@ -3341,9 +3339,6 @@ class GoogleGeminiFoodAnalysisService {
                                 assessmentNotes: extractString(from: itemData, keys: ["assessment_notes"])
                             )
                             detailedFoodItems.append(foodItem)
-                        } catch {
-                            print("⚠️ Google Gemini: Error parsing food item \(index): \(error)")
-                            // Continue with other items
                         }
                     }
                 } else if let foodItemsStringArray = extractStringArray(from: nutritionData, keys: ["food_items"]) {
@@ -3373,8 +3368,6 @@ class GoogleGeminiFoodAnalysisService {
                     )
                     detailedFoodItems = [singleItem]
                 }
-            } catch {
-                print("⚠️ Google Gemini: Error in food items parsing: \(error)")
             }
 
             // If no detailed items were parsed, create a safe fallback
@@ -4054,14 +4047,9 @@ class ClaudeFoodAnalysisService {
                             assessmentNotes: extractClaudeString(from: item, keys: ["assessment_notes"])
                         )
                         foodItems.append(foodItem)
-                    } catch {
-                        print("⚠️ Claude: Error parsing food item \(index): \(error)")
-                        // Continue with other items - doesn't crash the whole analysis
                     }
                 }
             }
-        } catch {
-            print("⚠️ Claude: Error in food items parsing: \(error)")
         }
 
         // Enhanced fallback creation like Gemini - safe fallback with comprehensive data
