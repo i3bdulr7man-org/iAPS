@@ -1,0 +1,31 @@
+name: Daily Upstream Sync
+
+on:
+  schedule:
+    - cron: "0 3 * * *"     # يعمل يومياً الساعة 3 صباحاً UTC
+  workflow_dispatch:         # للتشغيل اليدوي عند الحاجة
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/Artificial-Pancreas/iAPS.git
+          git fetch upstream
+
+      - name: Merge upstream ai into my-branch
+        run: |
+          git checkout my-branch
+          git merge upstream/ai --no-edit || true
+
+      - name: Push changes
+        run: |
+          git push origin my-branch
