@@ -2,8 +2,8 @@ name: Daily Upstream Sync
 
 on:
   schedule:
-    - cron: "0 3 * * *"     # يعمل يومياً الساعة 3 صباحاً UTC
-  workflow_dispatch:         # للتشغيل اليدوي عند الحاجة
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
-      - name: Configure Git identity   # <-- هذا الذي كان ناقصاً
+      - name: Configure Git identity
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -31,6 +31,12 @@ jobs:
           git checkout my-branch
           git merge upstream/ai --no-edit || true
 
-      - name: Push changes
+      - name: Push changes if needed
         run: |
-          git push origin my-branch
+          # تحقّق من وجود تغييرات
+          if git diff --quiet; then
+            echo "No changes detected. Skipping push."
+          else
+            echo "Changes detected. Pushing..."
+            git push origin my-branch
+          fi
