@@ -1,5 +1,5 @@
 name: 6. Daily Upstream Sync
-run-name: Daily Upstream Sync
+run-name: Daily Upstream Sync (${{ github.ref_name }})
 
 on:
   schedule:
