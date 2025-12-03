@@ -1,4 +1,5 @@
 name: 6. Daily Upstream Sync
+run-name: Daily Upstream Sync
 
 on:
   schedule:
