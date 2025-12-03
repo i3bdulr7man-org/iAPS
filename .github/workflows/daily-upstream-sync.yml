@@ -26,10 +26,10 @@ jobs:
           git remote add upstream https://github.com/Artificial-Pancreas/iAPS.git
           git fetch upstream
 
-      - name: Merge upstream ai into my-branch
+      - name: Merge upstream dev into my-branch
         run: |
           git checkout my-branch
-          git merge upstream/ai --no-edit || true
+          git merge upstream/dev --no-edit || true
 
       - name: Push changes if needed
         run: |
