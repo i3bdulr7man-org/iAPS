@@ -34,10 +34,10 @@ jobs:
 
       - name: Push changes if needed
         run: |
-          # تحقّق من وجود تغييرات
-          if git diff --quiet; then
-            echo "No changes detected. Skipping push."
-          else
-            echo "Changes detected. Pushing..."
+          if [ -n "$(git log origin/my-branch..my-branch)" ]; then
+            echo "New commits detected. Pushing..."
             git push origin my-branch
+          else
+            echo "No new commits. Skipping push."
           fi
+
