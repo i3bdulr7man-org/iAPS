@@ -30,7 +30,7 @@ jobs:
       - name: Merge upstream dev into my-branch
         run: |
           git checkout my-branch
-          git merge upstream/dev --no-edit || true
+          git merge upstream/dev --no-edit
 
       - name: Push changes if needed
         run: |
