@@ -25,8 +25,10 @@ extension AddCarbs {
         @Published var hypoTreatment = false
         @Published var presetToEdit: Presets?
         @Published var edit = false
+        @Published var ai = false
+        @Published var skipSave = false
 
-        @Published var combinedPresets: [(preset: Presets?, portions: Int)] = []
+        @Published var combinedPresets: [(preset: Presets?, portions: Double)] = []
 
         let now = Date.now
 
@@ -39,6 +41,8 @@ extension AddCarbs {
             maxCarbs = settings.settings.maxCarbs
             skipBolus = settingsManager.settings.skipBolusScreenAfterCarbs
             useFPUconversion = settingsManager.settings.useFPUconversion
+            ai = settingsManager.settings.ai
+            skipSave = settingsManager.settings.skipSave
         }
 
         func add(_ continue_: Bool, fetch: Bool) {
@@ -91,18 +95,18 @@ extension AddCarbs {
 
         func removePresetFromNewMeal() {
             if let index = combinedPresets.firstIndex(where: { $0.preset == selection }) {
-                if combinedPresets[index].portions > 1 {
-                    combinedPresets[index].portions -= 1
-                } else if combinedPresets[index].portions == 1 {
+                if combinedPresets[index].portions > 0.5 {
+                    combinedPresets[index].portions -= 0.5
+                } else if combinedPresets[index].portions == 0.5 {
                     combinedPresets.remove(at: index)
                     selection = nil
                 }
             }
         }
 
-        func addPresetToNewMeal() {
+        func addPresetToNewMeal(half: Bool = false) {
             if let index = combinedPresets.firstIndex(where: { $0.preset == selection }) {
-                combinedPresets[index].portions += 1
+                combinedPresets[index].portions += (half ? 0.5 : 1)
             } else {
                 combinedPresets.append((selection, 1))
             }
@@ -127,22 +131,23 @@ extension AddCarbs {
                     .reduce(0, +)
                 let totProtein = combinedPresets
                     .compactMap({ each in (each.preset?.protein ?? 0) as Decimal * Decimal(each.portions) }).reduce(0, +)
+                let margins: Decimal = 0.2
 
-                if carbs > totCarbs {
+                if carbs > totCarbs + margins {
                     presetsString.append("+ \(carbs - totCarbs) carbs")
-                } else if carbs < totCarbs {
+                } else if carbs + margins < totCarbs {
                     presetsString.append("- \(totCarbs - carbs) carbs")
                 }
 
-                if fat > totFat {
+                if fat > totFat + margins {
                     presetsString.append("+ \(fat - totFat) fat")
-                } else if fat < totFat {
+                } else if fat + margins < totFat {
                     presetsString.append("- \(totFat - fat) fat")
                 }
 
-                if protein > totProtein {
+                if protein > totProtein + margins {
                     presetsString.append("+ \(protein - totProtein) protein")
-                } else if protein < totProtein {
+                } else if protein + margins < totProtein {
                     presetsString.append("- \(totProtein - protein) protein")
                 }
             }
@@ -172,27 +177,27 @@ extension AddCarbs {
         func subtract() {
             let presetCarbs = ((selection?.carbs ?? 0) as NSDecimalNumber) as Decimal
             if carbs != 0, carbs - presetCarbs >= 0 {
-                carbs -= presetCarbs
+                carbs -= presetCarbs * 0.5
             } else { carbs = 0 }
 
             let presetFat = ((selection?.fat ?? 0) as NSDecimalNumber) as Decimal
             if fat != 0, presetFat >= 0 {
-                fat -= presetFat
+                fat -= presetFat * 0.5
             } else { fat = 0 }
 
             let presetProtein = ((selection?.protein ?? 0) as NSDecimalNumber) as Decimal
             if protein != 0, presetProtein >= 0 {
-                protein -= presetProtein
+                protein -= presetProtein * 0.5
             } else { protein = 0 }
 
             removePresetFromNewMeal()
         }
 
         func plus() {
-            carbs += ((selection?.carbs ?? 0) as NSDecimalNumber) as Decimal
-            fat += ((selection?.fat ?? 0) as NSDecimalNumber) as Decimal
-            protein += ((selection?.protein ?? 0) as NSDecimalNumber) as Decimal
-            addPresetToNewMeal()
+            carbs += (((selection?.carbs ?? 0) as NSDecimalNumber) as Decimal * 0.5)
+            fat += (((selection?.fat ?? 0) as NSDecimalNumber) as Decimal * 0.5)
+            protein += (((selection?.protein ?? 0) as NSDecimalNumber) as Decimal * 0.5)
+            addPresetToNewMeal(half: true)
         }
 
         func addU(_ selection: Presets?) {
