@@ -1,6 +1,7 @@
 import Combine
 import CoreData
 import LibreTransmitter
+import LoopKit
 import LoopKitUI
 import SwiftDate
 import SwiftUI
@@ -9,6 +10,7 @@ extension Home {
     final class StateModel: BaseStateModel<Provider> {
         @Injected() var broadcaster: Broadcaster!
         @Injected() var appCoordinator: AppCoordinator!
+        @Injected() var deviceDataManager: DeviceDataManager!
         @Injected() var apsManager: APSManager!
         @Injected() var nightscoutManager: NightscoutManager!
         @Injected() var storage: TempTargetsStorage!
@@ -81,6 +83,7 @@ extension Home {
         @Published var sensorDays: Double = 10
         @Published var carbButton: Bool = true
         @Published var profileButton: Bool = true
+        @Published var mealData = MealData()
 
         // Chart data
         var data = ChartModel(
@@ -127,6 +130,14 @@ extension Home {
             useCarbBars: false
         )
 
+        func startTimer() {
+            timer.resume()
+        }
+
+        func stopTimer() {
+            timer.suspend()
+        }
+
         override func subscribe() {
             setupGlucose()
             setupBasals()
@@ -145,6 +156,7 @@ extension Home {
             setupLoopStats()
             setupData()
             setupCob()
+            setupMeals()
 
             data.suggestion = provider.suggestion
             dynamicVariables = provider.dynamicVariables
@@ -236,7 +248,6 @@ extension Home {
                     self?.setupCurrentTempTarget()
                 }
             }
-            timer.resume()
 
             apsManager.isLooping
                 .receive(on: DispatchQueue.main)
@@ -305,12 +316,17 @@ extension Home {
                     guard let self = self else { return }
                     if show, let pumpManager = self.provider.deviceManager.pumpManager
                     {
-                        let view = PumpConfig.PumpSettingsView(
-                            pumpManager: pumpManager,
-                            deviceManager: self.provider.deviceManager,
-                            completionDelegate: self,
-                        ).asAny()
-                        self.router.mainSecondaryModalView.send(view)
+                        if pumpManager.isOnboarded {
+                            let view = PumpConfig.PumpSettingsView(
+                                pumpManager: pumpManager,
+                                deviceManager: self.provider.deviceManager,
+                                completionDelegate: self,
+                            ).asAny()
+                            self.router.mainSecondaryModalView.send(view)
+                        } else {
+                            self.router.mainSecondaryModalView.send(nil)
+                            showModal(for: .pumpConfig)
+                        }
                     } else {
                         self.router.mainSecondaryModalView.send(nil)
                     }
@@ -400,9 +416,12 @@ extension Home {
                 self.readings = CoreDataStorage().fetchGlucose(interval: DateFilter().today)
                 self.recentGlucose = self.data.glucose.last
                 if self.data.glucose.count >= 2 {
-                    self
-                        .glucoseDelta = (self.recentGlucose?.glucose ?? 0) -
-                        (self.data.glucose[self.data.glucose.count - 2].glucose ?? 0)
+                    self.glucoseDelta =
+                        NSDecimalNumber(
+                            decimal:
+                            (self.recentGlucose?.unfiltered ?? 0) -
+                                (self.data.glucose[self.data.glucose.count - 2].unfiltered ?? 0)
+                        ).intValue
                 } else {
                     self.glucoseDelta = nil
                 }
@@ -639,6 +658,50 @@ extension Home {
             }
         }
 
+        private func setupMeals() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let data = self.provider.fetchedMeals
+                self.mealData.carbs = self.carbCount(data)
+                self.mealData.fat = self.fatCount(data)
+                self.mealData.protein = self.proteinCount(data)
+                self.mealData.kcal = self.kcalCount()
+                self.mealData.servings = self.servingsCount(data)
+            }
+        }
+
+        private func carbCount(_ fetchedMeals: [Carbohydrates]) -> Decimal {
+            fetchedMeals
+                .compactMap(\.carbs)
+                .map({ x in
+                    x as Decimal
+                }).reduce(0, +)
+        }
+
+        private func fatCount(_ fetchedMeals: [Carbohydrates]) -> Decimal {
+            fetchedMeals
+                .compactMap(\.fat)
+                .map({ x in
+                    x as Decimal
+                }).reduce(0, +)
+        }
+
+        private func proteinCount(_ fetchedMeals: [Carbohydrates]) -> Decimal {
+            fetchedMeals
+                .compactMap(\.protein)
+                .map({ x in
+                    x as Decimal
+                }).reduce(0, +)
+        }
+
+        private func servingsCount(_ fetchedMeals: [Carbohydrates]) -> Int {
+            fetchedMeals.count
+        }
+
+        private func kcalCount() -> Decimal {
+            4 * (mealData.carbs + mealData.protein) + mealData.fat * 9
+        }
+
         func openCGM() {
             if let cgm = provider.deviceManager.cgmManager {
                 if let url = cgm.appURL {
@@ -766,6 +829,7 @@ extension Home.StateModel:
     func carbsDidUpdate(_: [CarbsEntry]) {
         setupCarbs()
         setupAnnouncements()
+        setupMeals()
     }
 
     func enactedSuggestionDidUpdate(_ suggestion: Suggestion) {
