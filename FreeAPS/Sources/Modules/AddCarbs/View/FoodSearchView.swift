@@ -1,157 +1,183 @@
 import Combine
+import PhotosUI
 import SwiftUI
 
 struct FoodSearchView: View {
     @ObservedObject var state: FoodSearchStateModel
-    var onSelect: (FoodItem, UIImage?) -> Void
-    @Environment(\.dismiss) var dismiss
-
-    // Navigation States
-    @State private var showingAIAnalysisResults = false
-    @State private var aiAnalysisResult: AIFoodAnalysisResult?
-    @State private var aiAnalysisImage: UIImage?
+    var onSelect: (AIFoodItem, UIImage?, Date?) -> Void
+//    let addButtonLabelKey: LocalizedStringKey
+    let addAllButtonLabelKey: LocalizedStringKey
 
     var body: some View {
-        NavigationStack {
-            VStack {
-                HStack(spacing: 8) {
-                    TextField("Food Search...", text: $state.foodSearchText)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-                        .submitLabel(.search)
-                        .onSubmit {
-                            state.performSearch(query: state.foodSearchText)
-                        }
-
-                    Button {
-                        state.navigateToBarcode = true
-                    } label: {
-                        Image(systemName: "barcode.viewfinder")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                            .padding(8)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-
-                    Button {
-                        state.navigateToAICamera = true
-                    } label: {
-                        Image(systemName: "camera")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 24, height: 24)
-                            .padding(8)
-                            .background(Color.purple.opacity(0.1))
-                            .cornerRadius(8)
-                            .foregroundColor(.purple)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-
-                ScrollView {
-                    if showingAIAnalysisResults, let result = aiAnalysisResult {
-                        AIAnalysisResultsView(
-                            analysisResult: result,
-                            onFoodItemSelected: { foodItem in
-                                let selectedFood = FoodItem(
-                                    name: foodItem.name,
-                                    carbs: foodItem.carbs,
-                                    fat: foodItem.fat,
-                                    protein: foodItem.protein,
-                                    source: "AI Analysis",
-                                    imageURL: nil
-                                )
-                                handleFoodItemSelection(selectedFood, image: aiAnalysisImage)
-                            },
-                            onCompleteMealSelected: { totalMeal in
-                                onSelect(totalMeal, aiAnalysisImage)
-                                dismiss()
-                            }
-                        )
-                    } else {
-                        FoodSearchResultsView(
-                            searchResults: state.searchResults,
-                            aiSearchResults: state.aiSearchResults,
-                            isSearching: state.isLoading,
-                            errorMessage: state.errorMessage,
-                            onProductSelected: { selectedProduct in
-                                let foodItem = selectedProduct.toFoodItem()
-                                handleFoodItemSelection(foodItem, image: nil)
-                            },
-                            onAIProductSelected: { aiProduct in
-                                let foodItem = FoodItem(
-                                    name: aiProduct.name,
-                                    carbs: Decimal(aiProduct.carbs),
-                                    fat: Decimal(aiProduct.fat),
-                                    protein: Decimal(aiProduct.protein),
-                                    source: "AI Analyse",
-                                    imageURL: aiProduct.imageURL
-                                )
-                                handleFoodItemSelection(foodItem, image: nil)
-                            }
-                        )
-                    }
-                }
-                .padding(.top, 8)
-            }
-
-            .navigationTitle("Food Search")
-            .navigationBarItems(trailing: Button("Done") { dismiss() })
-            .navigationDestination(isPresented: $state.navigateToBarcode) {
-                BarcodeScannerView(
-                    onBarcodeScanned: { barcode in
-                        handleBarcodeScan(barcode)
-                        state.navigateToBarcode = false
-                    },
-                    onCancel: { state.navigateToBarcode = false }
-                )
-            }
-            .navigationDestination(isPresented: $state.navigateToAICamera) {
-                AICameraView(
-                    onFoodAnalyzed: { analysisResult, image in
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            handleAIAnalysis(analysisResult, image: image)
-                            state.navigateToAICamera = false
-                        }
-                    },
-                    onCancel: { state.navigateToAICamera = false }
-                )
-            }
-        }.background(Color(.systemBackground))
-    }
-
-    private func handleBarcodeScan(_ barcode: String) {
-        print("📦 Barcode scanned: \(barcode)")
-        state.navigateToBarcode = false
-        state.foodSearchText = barcode
-        state.performSearch(query: barcode)
-        print("🔍 Search for Barcode: \(barcode)")
-    }
-
-    private func handleAIAnalysis(_ analysisResult: AIFoodAnalysisResult, image: UIImage?) { // ✅ Parameter name korrigiert
-        aiAnalysisResult = analysisResult
-        showingAIAnalysisResults = true
-        aiAnalysisImage = image // ✅ Bild speichern
-
-        let aiFoodItems = analysisResult.foodItemsDetailed.map { foodItem in
-            AIFoodItem(
-                name: foodItem.name,
-                brand: nil,
-                calories: foodItem.calories ?? 0,
-                carbs: foodItem.carbohydrates,
-                protein: foodItem.protein ?? analysisResult.totalProtein ?? 0,
-                fat: foodItem.fat ?? analysisResult.totalFat ?? 0,
-                imageURL: nil
+        VStack(spacing: 0) {
+            SearchResultsView(
+                state: state,
+                onFoodItemSelected: { foodItem, selectedTime in
+                    onSelect(foodItem, state.aiAnalysisRequest?.image, selectedTime)
+                },
+                onCompleteMealSelected: { totalMeal, selectedTime in
+                    onSelect(totalMeal, state.aiAnalysisRequest?.image, selectedTime)
+                },
+//                addButtonLabelKey: addButtonLabelKey,
+                addAllButtonLabelKey: addAllButtonLabelKey
             )
         }
-        state.aiSearchResults = aiFoodItems
+        .fullScreenCover(item: state.foodSearchRouteBinding) { route in
+            switch route {
+            case .camera:
+                ModernCameraView(
+                    onImageCaptured: { image in
+                        state.startImageAnalysis(image: image)
+                    }
+                )
+            case .barcodeScanner:
+                BarcodeScannerView(
+                    onBarcodeScanned: { barcode in
+                        state.enterBarcodeAndSearch(barcode: barcode)
+                    },
+                    onCancel: {
+                        state.foodSearchRoute = nil
+                    }
+                )
+            case .aiProgress:
+                AIProgressView(
+                    state: state,
+                    onCancel: {
+                        print("progress view - cancelled")
+                        state.cancelSearchTask()
+                    }
+                )
+            }
+        }
+        .sheet(item: $state.latestTextSearch) { searchResult in
+            TextSearchResultsSheet(
+                searchResult: searchResult,
+                onFoodItemSelected: { selectedItem, _ in
+                    state.addItem(selectedItem)
+                    state.latestTextSearch = nil
+                },
+                onDismiss: {
+                    state.latestTextSearch = nil
+                }
+            )
+        }
     }
 
-    private func handleFoodItemSelection(_ foodItem: FoodItem, image: UIImage?) {
-        onSelect(foodItem, image)
-        dismiss()
+    struct SearchBar: View {
+        @ObservedObject var state: FoodSearchStateModel
+        @State private var showPhotoPicker = false
+        @State private var selectedPhotoItem: PhotosPickerItem?
+        @FocusState private var isTextFieldFocused: Bool
+
+        var body: some View {
+            HStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    Image(
+                        systemName: state.isBarcode ? "barcode" :
+                            UserDefaults.standard.textSearchProvider.isAI ? "text.bubble" : "magnifyingglass"
+                    )
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.secondary)
+
+                    ZStack(alignment: .trailing) {
+                        TextField("Search foods...", text: $state.foodSearchText)
+                            .font(.body)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                            .submitLabel(.search)
+                            .focused($isTextFieldFocused)
+                            .onSubmit {
+                                state.searchByText(query: state.foodSearchText)
+                                state.showingFoodSearch = true
+                            }
+                            .onChange(of: isTextFieldFocused) { _, newValue in
+                                if newValue {
+                                    state.showingFoodSearch = true
+                                }
+                            }
+                    }
+
+                    // Clear button
+                    if !state.foodSearchText.isEmpty {
+                        Button(action: {
+                            state.foodSearchText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.secondary.opacity(0.6))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.systemGray5))
+                )
+
+                // Barcode Scanner Button
+                Button {
+                    state.showingFoodSearch = true
+                    state.foodSearchRoute = .barcodeScanner
+                } label: {
+                    Image(systemName: "barcode.viewfinder")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.blue)
+                        .frame(width: 46, height: 46)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.blue.opacity(0.12))
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // Camera Button with Context Menu
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.purple)
+                    .frame(width: 46, height: 46)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.purple.opacity(0.12))
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        state.foodSearchRoute = .camera
+                        state.showingFoodSearch = true
+                    }
+                    .contextMenu {
+                        Button {
+                            state.foodSearchRoute = .camera
+                            state.showingFoodSearch = true
+                        } label: {
+                            Label("Take Photo", systemImage: "camera")
+                        }
+
+                        Button {
+                            showPhotoPicker = true
+                            state.showingFoodSearch = true
+                        } label: {
+                            Label("Choose from Library", systemImage: "photo.on.rectangle")
+                        }
+                    }
+                    .photosPicker(
+                        isPresented: $showPhotoPicker,
+                        selection: $selectedPhotoItem,
+                        matching: .images
+                    )
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                guard let selectedPhotoItem = newItem else { return }
+                Task {
+                    if let data = try await selectedPhotoItem.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data)
+                    {
+                        state.startImageAnalysis(image: image)
+                        self.selectedPhotoItem = nil
+                    }
+                }
+            }
+        }
     }
 }
