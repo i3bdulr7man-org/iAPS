@@ -3,137 +3,379 @@ import SwiftUI
 
 struct SearchResultsView: View {
     @ObservedObject var state: FoodSearchStateModel
-    let onFoodItemSelected: (AIFoodItem, Date?) -> Void
-    let onCompleteMealSelected: (AIFoodItem, Date?) -> Void
-    let addButtonLabelKey: LocalizedStringKey = "" // TODO: not used currently
-    let addAllButtonLabelKey: LocalizedStringKey
+    let onContinue: ([FoodItemDetailed], Date?) -> Void
+    let onHypoTreatment: (([FoodItemDetailed], Date?) -> Void)?
+    let onPersist: (FoodItemDetailed) -> Void
+    let onDelete: (FoodItemDetailed) -> Void
+    let continueButtonLabelKey: LocalizedStringKey
+    let hypoTreatmentButtonLabelKey: LocalizedStringKey
 
-    @State private var clearedResults: [FoodAnalysisResult] = []
     @State private var clearedResultsViewState: SearchResultsState?
     @State private var selectedTime: Date?
     @State private var showTimePicker = false
-    @State private var showManualEntry = false
 
     private var nonDeletedItemCount: Int {
-        state.visibleSections.flatMap(\.foodItemsDetailed).filter { !state.resultsView.isDeleted($0) }.count
+        state.searchResultsState.nonDeletedItemCount
     }
 
     private var hasVisibleContent: Bool {
-        // Only deleted sections count as removing content (item deletions can be undone)
-        !state.visibleSections.isEmpty
-    }
-
-    private var totalCalories: Decimal {
-        state.visibleSections.flatMap(\.foodItemsDetailed).reduce(0) { sum, item in
-            guard !state.resultsView.isDeleted(item) else { return sum }
-            let portion = state.resultsView.portionSize(for: item)
-            return sum + (item.caloriesInPortion(portion: portion) ?? 0)
-        }
-    }
-
-    private var totalCarbs: Decimal {
-        state.visibleSections.flatMap(\.foodItemsDetailed).reduce(0) { sum, item in
-            guard !state.resultsView.isDeleted(item) else { return sum }
-            let portion = state.resultsView.portionSize(for: item)
-            return sum + (item.carbsInPortion(portion: portion) ?? 0)
-        }
-    }
-
-    private var totalProtein: Decimal {
-        state.visibleSections.flatMap(\.foodItemsDetailed).reduce(0) { sum, item in
-            guard !state.resultsView.isDeleted(item) else { return sum }
-            let portion = state.resultsView.portionSize(for: item)
-            return sum + (item.proteinInPortion(portion: portion) ?? 0)
-        }
-    }
-
-    private var totalFat: Decimal {
-        state.visibleSections.flatMap(\.foodItemsDetailed).reduce(0) { sum, item in
-            guard !state.resultsView.isDeleted(item) else { return sum }
-            let portion = state.resultsView.portionSize(for: item)
-            return sum + (item.fatInPortion(portion: portion) ?? 0)
-        }
+        state.searchResultsState.hasVisibleContent
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            if !hasVisibleContent {
-                Button(action: {
-                    // Dismiss keyboard
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    state.showingFoodSearch = false
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 14, weight: .medium))
-                        Text("Back")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+            // Only show these elements when NOT showing saved foods inline
+            if !(state.savedFoods != nil && state.showSavedFoods) {
+                // Loading indicator
+                if state.isLoading {
+                    loadingBanner()
+                        .padding(.top, 12)
+                        .padding(.horizontal)
+                }
+                // Error message (only when not loading)
+                else if let latestSearchError = state.latestSearchError {
+                    errorMessageBanner(message: latestSearchError, icon: state.latestSearchIcon)
+                        .padding(.top, 12)
+                        .padding(.horizontal)
+                }
+
+                // Undo button (shown after clearing, regardless of empty/non-empty state)
+                if clearedResultsViewState != nil {
+                    undoButton
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    if hasVisibleContent {
+                        mealTotalsView
                     }
-                    .foregroundColor(.blue)
-                    .frame(maxWidth: .infinity)
+                    actionButtonRow
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
+            }
+
+            if let savedFoods = state.savedFoods, state.showSavedFoods {
+                // Show saved foods inline with header
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Saved Foods")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        // Add New button
+                        Button(action: {
+                            state.showNewSavedFoodEntry = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                Text("New")
+                                    .font(.body)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                        .padding(.trailing, 8)
+
+                        // Done button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                state.showSavedFoods = false
+                            }
+                        }) {
+                            Text("Done")
+                                .font(.body)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.blue.opacity(0.12))
+                    .background(Color(.systemBackground))
+
+                    Divider()
+
+                    FoodItemsSelectorView(
+                        searchResult: savedFoods,
+                        onFoodItemSelected: { selectedItem in
+                            state.addItem(selectedItem, group: savedFoods)
+                        },
+                        onFoodItemRemoved: { removedItem in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                state.searchResultsState.deleteItem(removedItem)
+                            }
+                        },
+                        isItemAdded: { foodItem in
+                            state.searchResultsState.nonDeletedItems.contains(where: { $0.id == foodItem.id })
+                        },
+                        onDismiss: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                state.showSavedFoods = false
+                            }
+                        },
+                        filterText: state.filterText,
+                        onPersist: onPersist,
+                        onDelete: onDelete
                     )
                 }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
-                .padding(.top, 8)
-            }
-
-            // Loading indicator
-            if state.isLoading {
-                loadingBanner()
-                    .padding(.top, 12)
-                    .padding(.horizontal)
-            }
-            // Error message (only when not loading)
-            else if let latestSearchError = state.latestSearchError {
-                errorMessageBanner(message: latestSearchError, icon: state.latestSearchIcon)
-                    .padding(.top, 12)
-                    .padding(.horizontal)
-            }
-
-            // Undo button (shown after clearing, regardless of empty/non-empty state)
-            if clearedResultsViewState != nil {
-                undoButton
-            }
-
-            // Always show results if available, otherwise show empty state
-            if !hasVisibleContent {
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else if !hasVisibleContent {
                 noSearchesView
+                    .transition(.opacity)
+                    .scrollDismissesKeyboard(.immediately)
             } else {
                 searchResultsView
+                    .transition(.opacity)
+                    .scrollDismissesKeyboard(.immediately)
             }
         }
-        .onChange(of: state.searchResults) { _, _ in
+        .onChange(of: state.searchResultsState.searchResults) {
             // Only clear undo state if we have new visible content
-            let hasNewVisibleContent = !state.visibleSections.isEmpty &&
-                !state.visibleSections.flatMap(\.foodItemsDetailed).filter { !state.resultsView.isDeleted($0) }.isEmpty
+            let hasNewVisibleContent = !state.searchResultsState.searchResults.isEmpty &&
+                !state.searchResultsState.searchResults.flatMap(\.foodItemsDetailed)
+                .filter { !state.searchResultsState.isDeleted($0) }.isEmpty
 
             if clearedResultsViewState != nil, hasNewVisibleContent {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    clearedResults = []
                     clearedResultsViewState = nil
                 }
             }
         }
-        .sheet(isPresented: $showManualEntry) {
-            ManualFoodEntrySheet(
+        .sheet(item: $state.latestMultipleSelectSearch) { searchResult in
+            NavigationStack {
+                FoodItemsSelectorView(
+                    searchResult: searchResult,
+                    onFoodItemSelected: { selectedItem in
+                        state.addItem(selectedItem, group: searchResult)
+                    },
+                    onFoodItemRemoved: { removedItem in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            state.searchResultsState.hardDeleteItem(removedItem)
+                        }
+                    },
+                    isItemAdded: { foodItem in
+                        state.searchResultsState.nonDeletedItems.contains(where: { $0.id == foodItem.id })
+                    },
+                    onDismiss: {
+                        state.latestMultipleSelectSearch = nil
+                    },
+                    useTransparentBackground: true,
+                    onPersist: nil,
+                    onDelete: nil
+                )
+                .navigationTitle(searchResult.textQuery == nil ? "Search Results" : "Results for '\(searchResult.textQuery!)'")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            state.latestMultipleSelectSearch = nil
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.height(600), .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $state.showManualEntry) {
+            FoodItemEditorSheet(
+                existingItem: nil,
+                title: "Add Food Manually",
                 onSave: { foodItem in
-                    // Use the state model's addItem function
-                    state.addItem(foodItem)
-                    showManualEntry = false
+                    state.addItem(foodItem, group: nil)
+                    state.showManualEntry = false
                 },
                 onCancel: {
-                    showManualEntry = false
+                    state.showManualEntry = false
                 }
             )
             .presentationDetents([.height(600), .large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $state.showNewSavedFoodEntry) {
+            FoodItemEditorSheet(
+                existingItem: nil,
+                title: "Create Saved Food",
+                onSave: { foodItem in
+                    onPersist(foodItem)
+                    state.showNewSavedFoodEntry = false
+                },
+                onCancel: {
+                    state.showNewSavedFoodEntry = false
+                }
+            )
+            .presentationDetents([.height(600), .large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var actionButtonRow: some View {
+        HStack(alignment: .center) {
+            if nonDeletedItemCount > 0 {
+                // Time picker button
+                Button(action: {
+                    showTimePicker = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 14, weight: .medium))
+                        Text(selectedTime == nil ? "Now" : timeString(for: selectedTime!))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(.systemGray5))
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 8)
+            }
+
+            Spacer()
+
+            if hasVisibleContent {
+                if let onHypoTreatment = self.onHypoTreatment {
+                    Button(action: {
+                        let foodItems = state.searchResultsState.searchResults.flatMap(\.foodItemsDetailed)
+                            .filter { !state.searchResultsState.isDeleted($0) }
+                            .map { $0.withPortion(state.searchResultsState.portionSize(for: $0)) }
+                        onHypoTreatment(foodItems, selectedTime)
+                    }) {
+                        Text(hypoTreatmentButtonLabelKey)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Color.orange.opacity(0.7))
+                            )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                Button(action: {
+                    let foodItems = state.searchResultsState.searchResults.flatMap(\.foodItemsDetailed)
+                        .filter { !state.searchResultsState.isDeleted($0) }
+                        .map { $0.withPortion(state.searchResultsState.portionSize(for: $0)) }
+                    onContinue(foodItems, selectedTime)
+                }) {
+                    Text(continueButtonLabelKey)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.accentColor)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .sheet(isPresented: $showTimePicker) {
+            TimePickerSheet(selectedTime: $selectedTime, isPresented: $showTimePicker)
+                .presentationDetents([.height(280)])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var mealTotalsView: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Meal Totals")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                Spacer()
+                // Clear All button
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        // Save current state for undo
+                        clearedResultsViewState = SearchResultsState()
+                        clearedResultsViewState?.searchResults = state.searchResultsState.searchResults
+                        clearedResultsViewState?.editedItems = state.searchResultsState.editedItems
+                        clearedResultsViewState?.collapsedSections = state.searchResultsState.collapsedSections
+
+                        // Clear everything
+                        state.searchResultsState.clear()
+                        state.latestSearchError = nil
+                        state.latestSearchIcon = nil
+                    }
+                }) {
+                    Text("Clear All")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack(spacing: 8) {
+                TotalNutritionBadge(
+                    value: state.searchResultsState.totalCarbs,
+                    label: "carbs",
+                    color: NutritionBadgeConfig.carbsColor
+                )
+                .id("carbs-\(state.searchResultsState.totalCarbs)")
+                .transition(.scale.combined(with: .opacity))
+
+                TotalNutritionBadge(
+                    value: state.searchResultsState.totalProtein,
+                    label: "protein",
+                    color: NutritionBadgeConfig.proteinColor
+                )
+                .id("protein-\(state.searchResultsState.totalProtein)")
+                .transition(.scale.combined(with: .opacity))
+
+                TotalNutritionBadge(
+                    value: state.searchResultsState.totalFat,
+                    label: "fat",
+                    color: NutritionBadgeConfig.fatColor
+                )
+                .id("fat-\(state.searchResultsState.totalFat)")
+                .transition(.scale.combined(with: .opacity))
+
+                TotalNutritionBadge(
+                    value: state.searchResultsState.totalCalories,
+                    label: "kcal",
+                    color: NutritionBadgeConfig.caloriesColor
+                )
+                .id("calories-\(state.searchResultsState.totalCalories)")
+                .transition(.scale.combined(with: .opacity))
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: state.searchResultsState.totalCarbs)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: state.searchResultsState.totalProtein)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: state.searchResultsState.totalFat)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: state.searchResultsState.totalCalories)
+        }
+        .padding(.bottom, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        )
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(.systemGray6).opacity(0.5),
+                    Color(.systemGray6).opacity(0.3)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color.gray.opacity(0.2)),
+            alignment: .bottom
+        )
     }
 
     private var undoButton: some View {
@@ -143,14 +385,12 @@ struct SearchResultsView: View {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     // Restore cleared results and state
-                    state.searchResults = clearedResults
                     if let savedState = clearedResultsViewState {
-                        state.resultsView.editedItems = savedState.editedItems
-                        state.resultsView.deletedSections = savedState.deletedSections
-                        state.resultsView.collapsedSections = savedState.collapsedSections
+                        state.searchResultsState.searchResults = savedState.searchResults
+                        state.searchResultsState.editedItems = savedState.editedItems
+                        state.searchResultsState.collapsedSections = savedState.collapsedSections
                     }
 
-                    clearedResults = []
                     clearedResultsViewState = nil
                 }
             }) {
@@ -200,6 +440,15 @@ struct SearchResultsView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: {
+                state.cancelSearchTask()
+            }) {
+                Text("Cancel")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -237,193 +486,13 @@ struct SearchResultsView: View {
 
     private var searchResultsView: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) {
-                // Nutrition badges in a card-like container
-                VStack(spacing: 10) {
-                    HStack {
-                        Text("Meal Totals")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        // Clear All button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                // Save current state for undo
-                                clearedResults = state.searchResults
-                                clearedResultsViewState = SearchResultsState()
-                                clearedResultsViewState?.editedItems = state.resultsView.editedItems
-                                clearedResultsViewState?.deletedSections = state.resultsView.deletedSections
-                                clearedResultsViewState?.collapsedSections = state.resultsView.collapsedSections
-
-                                // Clear everything
-                                state.searchResults = []
-                                state.resultsView.clear()
-                                state.latestSearchError = nil
-                                state.latestSearchIcon = nil
-                            }
-                        }) {
-                            Text("Clear All")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        TotalNutritionBadge(
-                            value: totalCarbs,
-                            label: "carbs",
-                            color: NutritionBadgeConfig.carbsColor
-                        )
-                        .id("carbs-\(totalCarbs)")
-                        .transition(.scale.combined(with: .opacity))
-
-                        TotalNutritionBadge(
-                            value: totalProtein,
-                            label: "protein",
-                            color: NutritionBadgeConfig.proteinColor
-                        )
-                        .id("protein-\(totalProtein)")
-                        .transition(.scale.combined(with: .opacity))
-
-                        TotalNutritionBadge(
-                            value: totalFat,
-                            label: "fat",
-                            color: NutritionBadgeConfig.fatColor
-                        )
-                        .id("fat-\(totalFat)")
-                        .transition(.scale.combined(with: .opacity))
-
-                        TotalNutritionBadge(
-                            value: totalCalories,
-                            label: "kcal",
-                            color: NutritionBadgeConfig.caloriesColor
-                        )
-                        .id("calories-\(totalCalories)")
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: totalCarbs)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: totalProtein)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: totalFat)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.7), value: totalCalories)
-                }
-                .padding(.bottom, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                )
-
-                HStack(alignment: .center) {
-//                    Text("\(nonDeletedItemCount) \(nonDeletedItemCount == 1 ? "Food Item" : "Food Items")")
-//                        .font(.title3)
-//                        .fontWeight(.semibold)
-
-                    // Manual Entry button
-                    Button(action: {
-                        showManualEntry = true
-                    }) {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color(.systemGray5))
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    if nonDeletedItemCount > 0 {
-                        // Time picker button
-                        Button(action: {
-                            showTimePicker = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 14, weight: .medium))
-                                Text(selectedTime == nil ? "now" : timeString(for: selectedTime!))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color(.systemGray5))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 8)
-
-                        Button(action: {
-                            let visibleItems = state.visibleSections.flatMap(\.foodItemsDetailed)
-                                .filter { !state.resultsView.isDeleted($0) }
-                            let mealName = visibleItems.count == 1 ?
-                                visibleItems.first?.name ?? "Meal" :
-                                "Complete Meal"
-
-                            let totalMeal = AIFoodItem(
-                                name: mealName,
-                                brand: nil,
-                                calories: totalCalories,
-                                carbs: totalCarbs,
-                                protein: totalProtein,
-                                fat: totalFat,
-                                imageURL: visibleItems.count == 1 ? visibleItems.first?.imageURL : nil,
-                                source: state.visibleSections.first?.source ?? .ai
-                            )
-                            onCompleteMealSelected(totalMeal, selectedTime)
-                        }) {
-                            Text(addAllButtonLabelKey)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Color.accentColor)
-                                )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .sheet(isPresented: $showTimePicker) {
-                    TimePickerSheet(selectedTime: $selectedTime, isPresented: $showTimePicker)
-                        .presentationDetents([.height(280)])
-                        .presentationDragIndicator(.visible)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 20)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(.systemGray6).opacity(0.5),
-                        Color(.systemGray6).opacity(0.3)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .overlay(
-                Rectangle()
-                    .frame(height: 0.5)
-                    .foregroundColor(Color.gray.opacity(0.2)),
-                alignment: .bottom
-            )
             List {
-                ForEach(state.visibleSections) { analysisResult in
-                    AnalysisResultListSection(
+                ForEach(state.searchResultsState.searchResults) { analysisResult in
+                    FoodItemGroupListSection(
                         analysisResult: analysisResult,
                         state: state,
-                        onFoodItemSelected: onFoodItemSelected,
-                        selectedTime: selectedTime
+                        selectedTime: selectedTime,
+                        onPersist: onPersist
                     )
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -432,6 +501,7 @@ struct SearchResultsView: View {
             .listStyle(.plain)
             .background(Color(.systemGroupedBackground))
             .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.immediately)
         }
     }
 
@@ -445,13 +515,42 @@ struct SearchResultsView: View {
     private var noSearchesView: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Three main capabilities
+                // Main capabilities
                 VStack(spacing: 12) {
+                    // Saved Foods Card (always visible)
+                    Group {
+                        if let savedFoods = state.savedFoods, !savedFoods.foodItemsDetailed.isEmpty {
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    state.showSavedFoods = true
+                                }
+                            }) {
+                                CapabilityCard(
+                                    icon: FoodItemSource.database.icon,
+                                    iconColor: .orange,
+                                    title: "Saved Foods",
+                                    description: "Quick access to your frequently used foods",
+                                    isDisabled: false
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            CapabilityCard(
+                                icon: FoodItemSource.database.icon,
+                                iconColor: .orange,
+                                title: "Saved Foods",
+                                description: "No saved foods",
+                                isDisabled: true
+                            )
+                        }
+                    }
+
                     CapabilityCard(
-                        icon: "text.magnifyingglass",
+                        icon: FoodItemSource.aiText.icon,
                         iconColor: .blue,
                         title: "Text Search",
-                        description: "Search databases or describe food for AI analysis"
+                        description: "Search databases or describe food for AI analysis",
+                        isDisabled: false
                     )
 
                     // Barcode Scanner Card
@@ -459,10 +558,11 @@ struct SearchResultsView: View {
                         state.foodSearchRoute = .barcodeScanner
                     }) {
                         CapabilityCard(
-                            icon: "barcode.viewfinder",
+                            icon: FoodItemSource.barcode.icon,
                             iconColor: .blue,
                             title: "Barcode Scanner",
-                            description: "Scan packaged foods for nutrition information"
+                            description: "Scan packaged foods for nutrition information",
+                            isDisabled: false
                         )
                     }
                     .buttonStyle(.plain)
@@ -475,20 +575,22 @@ struct SearchResultsView: View {
                             icon: "camera.fill",
                             iconColor: .purple,
                             title: "Photo Analysis",
-                            description: "Snap a picture for AI-powered nutrition analysis. Long-press to choose from library."
+                            description: "Snap a picture for AI-powered nutrition analysis. Long-press to choose from library.",
+                            isDisabled: false
                         )
                     }
                     .buttonStyle(.plain)
 
                     // Manual Entry Card
                     Button(action: {
-                        showManualEntry = true
+                        state.showManualEntry = true
                     }) {
                         CapabilityCard(
-                            icon: "pencil",
+                            icon: FoodItemSource.manual.icon,
                             iconColor: .green,
                             title: "Manual Entry",
-                            description: "Enter nutrition information manually"
+                            description: "Enter nutrition information manually",
+                            isDisabled: false
                         )
                     }
                     .buttonStyle(.plain)
@@ -523,6 +625,7 @@ struct SearchResultsView: View {
             .padding(.top, 20)
             .frame(maxWidth: .infinity)
         }
+        .scrollDismissesKeyboard(.immediately)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
     }
@@ -535,18 +638,19 @@ private struct CapabilityCard: View {
     let iconColor: Color
     let title: String
     let description: String
+    let isDisabled: Bool
 
     var body: some View {
         HStack(spacing: 12) {
             // Icon container
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(iconColor.opacity(0.12))
+                    .fill(iconColor.opacity(isDisabled ? 0.05 : 0.12))
                     .frame(width: 44, height: 44)
 
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(iconColor)
+                    .foregroundColor(iconColor.opacity(isDisabled ? 0.3 : 1.0))
             }
 
             // Text content
@@ -554,11 +658,11 @@ private struct CapabilityCard: View {
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(isDisabled ? .secondary : .primary)
 
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.secondary.opacity(isDisabled ? 0.6 : 1.0))
                     .lineLimit(2)
             }
 
@@ -567,7 +671,7 @@ private struct CapabilityCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(Color(.secondarySystemGroupedBackground).opacity(isDisabled ? 0.5 : 1.0))
         )
     }
 }
@@ -592,55 +696,131 @@ private struct TipRow: View {
     }
 }
 
-// MARK: - Manual Food Entry Sheet
+// MARK: - Food Item Editor Sheet
 
-private struct ManualFoodEntrySheet: View {
-    let onSave: (AnalysedFoodItem) -> Void
+private struct FoodItemEditorSheet: View {
+    let existingItem: FoodItemDetailed?
+    let title: String
+    let onSave: (FoodItemDetailed) -> Void
     let onCancel: () -> Void
+    let allowServingMultiplierEdit: Bool
 
-    // Create a template food item for the editable popup
-    @State private var editableFoodItem = AnalysedFoodItem(
-        name: "",
-        confidence: nil,
-        brand: nil,
-        portionEstimate: nil,
-        portionEstimateSize: 100,
-        standardServing: nil,
-        standardServingSize: 100,
-        units: .grams,
-        preparationMethod: nil,
-        visualCues: nil,
-        glycemicIndex: nil,
-        caloriesPer100: nil,
-        carbsPer100: 0,
-        fatPer100: 0,
-        fiberPer100: nil,
-        proteinPer100: 0,
-        sugarsPer100: nil,
-        assessmentNotes: nil,
-        imageURL: nil,
-        imageFrontURL: nil,
-        source: .manual
-    )
-
-    @State private var editedPortionSize: Decimal = 100
+    @State private var nutritionMode: NutritionEntryMode = .perServing
+    @State private var portionSizeOrMultiplier: Decimal = 1
     @State private var editedName: String = ""
-    @State private var editedCaloriesPer100: Decimal?
-    @State private var editedCarbsPer100: Decimal = 0
-    @State private var editedProteinPer100: Decimal = 0
-    @State private var editedFatPer100: Decimal = 0
-    @State private var editedFiberPer100: Decimal?
-    @State private var editedSugarsPer100: Decimal?
+    @State private var editedCarbs: Decimal = 0
+    @State private var editedProtein: Decimal = 0
+    @State private var editedFat: Decimal = 0
+    @State private var editedFiber: Decimal?
+    @State private var editedSugars: Decimal?
     @State private var editedServingSize: Decimal?
+    @State private var editedCalories: Decimal?
+    @State private var sliderMultiplier: Double = 1.0
+
+    @FocusState private var focusedField: NutritionField?
+
+    enum NutritionField: Hashable {
+        case carbs
+        case protein
+        case fat
+        case fiber
+        case sugars
+        case servingSize
+        case calories
+        case name
+    }
+
+    enum NutritionEntryMode: String, CaseIterable, Hashable {
+        case perServing = "Per Serving"
+        case per100g = "Per 100g"
+        case per100ml = "Per 100ml"
+
+        var nutritionType: NutritionEntryType {
+            switch self {
+            case .perServing: return .perServing
+            case .per100g,
+                 .per100ml: return .per100
+            }
+        }
+
+        var unit: MealUnits {
+            switch self {
+            case .per100g,
+                 .perServing: return .grams
+            case .per100ml: return .milliliters
+            }
+        }
+    }
+
+    enum NutritionEntryType {
+        case perServing
+        case per100
+    }
+
+    private var nutritionType: NutritionEntryType {
+        nutritionMode.nutritionType
+    }
+
+    private var selectedUnit: MealUnits {
+        nutritionMode.unit
+    }
 
     private var canSave: Bool {
-        editedCarbsPer100 >= 0 && editedProteinPer100 >= 0 && editedFatPer100 >= 0
+        editedCarbs >= 0 && editedProtein >= 0 && editedFat >= 0
+    }
+
+    init(
+        existingItem: FoodItemDetailed?,
+        title: String? = nil,
+        allowServingMultiplierEdit: Bool = false,
+        onSave: @escaping (FoodItemDetailed) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.existingItem = existingItem
+        // Use provided title, or default based on whether editing existing item
+        self.title = title ?? (existingItem != nil ? "Edit Food" : "Add Food Manually")
+        self.allowServingMultiplierEdit = allowServingMultiplierEdit
+        self.onSave = onSave
+        self.onCancel = onCancel
+
+        // Initialize state from existing item if provided
+        if let item = existingItem {
+            _editedName = State(initialValue: item.name)
+
+            switch item.nutrition {
+            case let .per100(values):
+                // Determine mode based on units
+                let mode: NutritionEntryMode = (item.units ?? .grams) == .milliliters ? .per100ml : .per100g
+                _nutritionMode = State(initialValue: mode)
+                _editedCarbs = State(initialValue: values.carbs ?? 0)
+                _editedProtein = State(initialValue: values.protein ?? 0)
+                _editedFat = State(initialValue: values.fat ?? 0)
+                _editedFiber = State(initialValue: values.fiber)
+                _editedSugars = State(initialValue: values.sugars)
+                _editedCalories = State(initialValue: values.calories)
+                _portionSizeOrMultiplier = State(initialValue: item.portionSize ?? 100)
+                _sliderMultiplier = State(initialValue: Double(item.portionSize ?? 100))
+
+            case let .perServing(values):
+                _nutritionMode = State(initialValue: .perServing)
+                _editedCarbs = State(initialValue: values.carbs ?? 0)
+                _editedProtein = State(initialValue: values.protein ?? 0)
+                _editedFat = State(initialValue: values.fat ?? 0)
+                _editedFiber = State(initialValue: values.fiber)
+                _editedSugars = State(initialValue: values.sugars)
+                _editedCalories = State(initialValue: values.calories)
+                _portionSizeOrMultiplier = State(initialValue: item.servingsMultiplier ?? 1)
+                _sliderMultiplier = State(initialValue: Double(item.servingsMultiplier ?? 1))
+            }
+
+            _editedServingSize = State(initialValue: item.standardServingSize)
+        }
     }
 
     private func autoGeneratedName() -> String {
-        let carbs = editedCarbsPer100
-        let protein = editedProteinPer100
-        let fat = editedFatPer100
+        let carbs = editedCarbs
+        let protein = editedProtein
+        let fat = editedFat
 
         let total = carbs + protein + fat
         guard total > 0 else { return "Food" }
@@ -683,23 +863,39 @@ private struct ManualFoodEntrySheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                EditableFoodItemInfoPopup(
-                    foodItem: $editableFoodItem,
-                    portionSize: $editedPortionSize,
-                    editedName: $editedName,
-                    editedCaloriesPer100: $editedCaloriesPer100,
-                    editedCarbsPer100: $editedCarbsPer100,
-                    editedProteinPer100: $editedProteinPer100,
-                    editedFatPer100: $editedFatPer100,
-                    editedFiberPer100: $editedFiberPer100,
-                    editedSugarsPer100: $editedSugarsPer100,
+                // Nutrition Mode Picker at the top (3-way)
+                VStack(spacing: 12) {
+                    Picker("Nutrition Type", selection: $nutritionMode) {
+                        ForEach(NutritionEntryMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    .onChange(of: nutritionMode) { oldMode, newMode in
+                        handleNutritionModeChange(from: oldMode, to: newMode)
+                    }
+                }
+
+                FoodItemNutritionEditor(
+                    nutritionMode: $nutritionMode,
+                    portionSizeOrMultiplier: $portionSizeOrMultiplier,
+                    sliderMultiplier: $sliderMultiplier,
+                    editedCarbs: $editedCarbs,
+                    editedProtein: $editedProtein,
+                    editedFat: $editedFat,
+                    editedFiber: $editedFiber,
+                    editedSugars: $editedSugars,
                     editedServingSize: $editedServingSize,
-                    allowNutritionEditing: true
+                    editedCalories: $editedCalories,
+                    allowServingMultiplierEdit: allowServingMultiplierEdit,
+                    focusedField: $focusedField
                 )
 
                 // Editable food name at bottom
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Food Name (Optional)")
+                    Text("Food Name")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.secondary)
@@ -709,6 +905,7 @@ private struct ManualFoodEntrySheet: View {
                         .font(.body)
                         .textFieldStyle(.roundedBorder)
                         .padding(.horizontal)
+                        .focused($focusedField, equals: .name)
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -738,47 +935,785 @@ private struct ManualFoodEntrySheet: View {
                 .padding(.vertical, 16)
                 .background(Color(.systemBackground))
             }
-            .navigationTitle("Add Food Manually")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Only show keyboard toolbar when a field is actually focused
+                if focusedField != nil {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button {
+                            focusedField = nil
+                        } label: {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+            }
+        }
+        // Ensure keyboard dismisses when sheet loses focus
+        .onDisappear {
+            focusedField = nil
         }
     }
 
-    private func saveFoodItem() {
-        // Calculate calories from macros
-        let calculatedCalories = (editedCarbsPer100 * 4) + (editedProteinPer100 * 4) + (editedFatPer100 * 9)
+    private func handleNutritionModeChange(from oldMode: NutritionEntryMode, to newMode: NutritionEntryMode) {
+        // Skip if modes are the same
+        guard oldMode.nutritionType != newMode.nutritionType else {
+            return
+        }
 
+        switch (oldMode.nutritionType, newMode.nutritionType) {
+        case (.per100, .perServing):
+            // Switching from per100 to perServing
+            // Calculate new per-serving values based on current portion size
+            let currentPortionSize = portionSizeOrMultiplier
+            let scaleFactor = currentPortionSize / 100
+
+            editedCarbs = round(editedCarbs * scaleFactor, to: 1)
+            editedProtein = round(editedProtein * scaleFactor, to: 1)
+            editedFat = round(editedFat * scaleFactor, to: 1)
+            editedFiber = editedFiber.map { round($0 * scaleFactor, to: 1) }
+            editedSugars = editedSugars.map { round($0 * scaleFactor, to: 1) }
+
+            // Scale calories if they exist
+            editedCalories = editedCalories.map { round($0 * scaleFactor, to: 0) }
+
+            // Set serving size to current portion size
+            editedServingSize = currentPortionSize
+
+            // Set multiplier to 1 (always for perServing mode in this context)
+            portionSizeOrMultiplier = 1
+            sliderMultiplier = 1.0
+
+        case (.perServing, .per100):
+            // Switching from perServing to per100
+            if let servingSize = editedServingSize, servingSize > 0 {
+                // We have a serving size - do reverse conversion
+                let scaleFactor = 100 / servingSize
+
+                editedCarbs = round(editedCarbs * scaleFactor, to: 1)
+                editedProtein = round(editedProtein * scaleFactor, to: 1)
+                editedFat = round(editedFat * scaleFactor, to: 1)
+                editedFiber = editedFiber.map { round($0 * scaleFactor, to: 1) }
+                editedSugars = editedSugars.map { round($0 * scaleFactor, to: 1) }
+
+                // Scale calories if they exist
+                editedCalories = editedCalories.map { round($0 * scaleFactor, to: 0) }
+
+                // Set portion size to the serving size
+                portionSizeOrMultiplier = servingSize
+                sliderMultiplier = Double(servingSize)
+            } else {
+                // No serving size available - just set default portion size
+                portionSizeOrMultiplier = 100
+                sliderMultiplier = 100.0
+            }
+
+        default:
+            // Handle switches between per100g and per100ml (same nutrition type)
+            break
+        }
+    }
+
+    // Helper function to round Decimal to specified number of decimal places
+    private func round(_ value: Decimal, to places: Int) -> Decimal {
+        var rounded = value
+        var result = Decimal()
+        NSDecimalRound(&result, &rounded, places, .plain)
+        return result
+    }
+
+    private func saveFoodItem() {
         // Use auto-generated name if user hasn't entered one
         let finalName = editedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?
             autoGeneratedName() : editedName
 
-        // Use edited serving size if provided, otherwise nil
-        let finalServingSize = editedServingSize
-
-        let foodItem = AnalysedFoodItem(
-            name: finalName,
-            confidence: nil,
-            brand: nil,
-            portionEstimate: nil,
-            portionEstimateSize: editedPortionSize,
-            standardServing: nil,
-            standardServingSize: finalServingSize,
-            units: .grams,
-            preparationMethod: nil,
-            visualCues: nil,
-            glycemicIndex: nil,
-            caloriesPer100: calculatedCalories,
-            carbsPer100: editedCarbsPer100,
-            fatPer100: editedFatPer100,
-            fiberPer100: editedFiberPer100,
-            proteinPer100: editedProteinPer100,
-            sugarsPer100: editedSugarsPer100,
-            assessmentNotes: nil,
-            imageURL: nil,
-            imageFrontURL: nil,
-            source: .manual
+        let nutritionValues = NutritionValues(
+            calories: editedCalories,
+            carbs: editedCarbs,
+            fat: editedFat,
+            fiber: editedFiber,
+            protein: editedProtein,
+            sugars: editedSugars
         )
 
+        let foodItem: FoodItemDetailed
+
+        // If editing existing item, preserve its properties
+        if let existingItem = existingItem {
+            switch nutritionMode.nutritionType {
+            case .per100:
+                foodItem = FoodItemDetailed(
+                    id: existingItem.id, // Preserve ID
+                    name: finalName,
+                    nutritionPer100: nutritionValues,
+                    portionSize: portionSizeOrMultiplier,
+                    confidence: existingItem.confidence,
+                    brand: existingItem.brand,
+                    standardServing: existingItem.standardServing,
+                    standardServingSize: editedServingSize,
+                    units: selectedUnit,
+                    preparationMethod: existingItem.preparationMethod,
+                    visualCues: existingItem.visualCues,
+                    glycemicIndex: existingItem.glycemicIndex,
+                    assessmentNotes: existingItem.assessmentNotes,
+                    imageURL: existingItem.imageURL,
+                    imageFrontURL: existingItem.imageFrontURL,
+                    source: existingItem.source
+                )
+            case .perServing:
+                foodItem = FoodItemDetailed(
+                    id: existingItem.id, // Preserve ID
+                    name: finalName,
+                    nutritionPerServing: nutritionValues,
+                    servingsMultiplier: portionSizeOrMultiplier,
+                    confidence: existingItem.confidence,
+                    brand: existingItem.brand,
+                    standardServing: existingItem.standardServing,
+                    standardServingSize: editedServingSize,
+                    units: selectedUnit,
+                    preparationMethod: existingItem.preparationMethod,
+                    visualCues: existingItem.visualCues,
+                    glycemicIndex: existingItem.glycemicIndex,
+                    assessmentNotes: existingItem.assessmentNotes,
+                    imageURL: existingItem.imageURL,
+                    imageFrontURL: existingItem.imageFrontURL,
+                    source: existingItem.source
+                )
+            }
+        } else {
+            // Creating new item
+            switch nutritionMode.nutritionType {
+            case .per100:
+                foodItem = FoodItemDetailed(
+                    name: finalName,
+                    nutritionPer100: nutritionValues,
+                    portionSize: portionSizeOrMultiplier,
+                    confidence: nil,
+                    brand: nil,
+                    standardServing: nil,
+                    standardServingSize: editedServingSize,
+                    units: selectedUnit,
+                    preparationMethod: nil,
+                    visualCues: nil,
+                    glycemicIndex: nil,
+                    assessmentNotes: nil,
+                    imageURL: nil,
+                    imageFrontURL: nil,
+                    source: .manual
+                )
+            case .perServing:
+                foodItem = FoodItemDetailed(
+                    name: finalName,
+                    nutritionPerServing: nutritionValues,
+                    servingsMultiplier: portionSizeOrMultiplier,
+                    confidence: nil,
+                    brand: nil,
+                    standardServing: nil,
+                    standardServingSize: editedServingSize,
+                    units: selectedUnit,
+                    preparationMethod: nil,
+                    visualCues: nil,
+                    glycemicIndex: nil,
+                    assessmentNotes: nil,
+                    imageURL: nil,
+                    imageFrontURL: nil,
+                    source: .manual
+                )
+            }
+        }
+
         onSave(foodItem)
+    }
+
+    private func endEditing() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+// MARK: - Food Item Nutrition Editor
+
+private struct FoodItemNutritionEditor: View {
+    @Binding var nutritionMode: FoodItemEditorSheet.NutritionEntryMode
+    @Binding var portionSizeOrMultiplier: Decimal
+    @Binding var sliderMultiplier: Double
+    @Binding var editedCarbs: Decimal
+    @Binding var editedProtein: Decimal
+    @Binding var editedFat: Decimal
+    @Binding var editedFiber: Decimal?
+    @Binding var editedSugars: Decimal?
+    @Binding var editedServingSize: Decimal?
+    @Binding var editedCalories: Decimal?
+    let allowServingMultiplierEdit: Bool
+    @FocusState.Binding var focusedField: FoodItemEditorSheet.NutritionField?
+
+    @State private var showAllNutrients: Bool = false
+
+    init(
+        nutritionMode: Binding<FoodItemEditorSheet.NutritionEntryMode>,
+        portionSizeOrMultiplier: Binding<Decimal>,
+        sliderMultiplier: Binding<Double>,
+        editedCarbs: Binding<Decimal>,
+        editedProtein: Binding<Decimal>,
+        editedFat: Binding<Decimal>,
+        editedFiber: Binding<Decimal?>,
+        editedSugars: Binding<Decimal?>,
+        editedServingSize: Binding<Decimal?>,
+        editedCalories: Binding<Decimal?>,
+        allowServingMultiplierEdit: Bool = false,
+        focusedField: FocusState<FoodItemEditorSheet.NutritionField?>.Binding
+    ) {
+        _nutritionMode = nutritionMode
+        _portionSizeOrMultiplier = portionSizeOrMultiplier
+        _sliderMultiplier = sliderMultiplier
+        _editedCarbs = editedCarbs
+        _editedProtein = editedProtein
+        _editedFat = editedFat
+        _editedFiber = editedFiber
+        _editedSugars = editedSugars
+        _editedServingSize = editedServingSize
+        _editedCalories = editedCalories
+        self.allowServingMultiplierEdit = allowServingMultiplierEdit
+        _focusedField = focusedField
+
+        // Auto-expand if there are optional nutrients
+        let hasOptionalNutrients = (editedFiber.wrappedValue != nil && editedFiber.wrappedValue! > 0) ||
+            (editedSugars.wrappedValue != nil && editedSugars.wrappedValue! > 0) ||
+            (editedServingSize.wrappedValue != nil && editedServingSize.wrappedValue! > 0) ||
+            (editedCalories.wrappedValue != nil && editedCalories.wrappedValue! > 0)
+
+        _showAllNutrients = State(initialValue: hasOptionalNutrients)
+    }
+
+    private var unit: String {
+        nutritionMode == .perServing ? "serving" : nutritionMode.unit.localizedAbbreviation
+    }
+
+    private var nutritionType: FoodItemEditorSheet.NutritionEntryType {
+        nutritionMode.nutritionType
+    }
+
+    // Calculate calories from macros
+    private var calculatedCalories: Decimal {
+        (editedCarbs * 4) + (editedProtein * 4) + (editedFat * 9)
+    }
+
+    // Use manually edited calories if available, otherwise use calculated
+    private var displayedCalories: Decimal {
+        // If we have a calories value (whether from food item or manual entry), use it
+        // Only fall back to calculated if there's no value at all
+        if let calories = editedCalories {
+            return calories
+        } else {
+            return calculatedCalories
+        }
+    }
+
+    private var sliderRange: ClosedRange<Double> {
+        switch nutritionType {
+        case .per100:
+            return 10.0 ... 600.0
+        case .perServing:
+            return 0.25 ... 10.0
+        }
+    }
+
+    private var sliderStep: Double.Stride {
+        switch nutritionType {
+        case .per100:
+            return 5.0
+        case .perServing:
+            return 0.25
+        }
+    }
+
+    private var sliderMinLabel: String {
+        switch nutritionType {
+        case .per100:
+            return "10\(nutritionMode.unit.localizedAbbreviation)"
+        case .perServing:
+            return "0.25×"
+        }
+    }
+
+    private var sliderMaxLabel: String {
+        switch nutritionType {
+        case .per100:
+            return "600\(nutritionMode.unit.localizedAbbreviation)"
+        case .perServing:
+            return "10×"
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // Portion Size/Multiplier Slider
+                // Show for per100 mode always, or for perServing mode when allowServingMultiplierEdit is true
+                if nutritionType == .per100 || (nutritionType == .perServing && allowServingMultiplierEdit) {
+                    VStack(spacing: 12) {
+                        switch nutritionType {
+                        case .per100:
+                            Text(
+                                "\(Double(portionSizeOrMultiplier), specifier: "%.0f") \(nutritionMode.unit.localizedAbbreviation)"
+                            )
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.orange)
+                        case .perServing:
+                            Text("\(Double(portionSizeOrMultiplier), specifier: "%.2f")× servings")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.orange)
+                        }
+
+                        Slider(value: $sliderMultiplier, in: sliderRange, step: sliderStep)
+                            .tint(.orange)
+                            .padding(.horizontal)
+                            .onChange(of: sliderMultiplier) { _, newValue in
+                                portionSizeOrMultiplier = Decimal(newValue)
+                            }
+
+                        HStack {
+                            Text(sliderMinLabel)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(sliderMaxLabel)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                // Nutrition Table with Editable values
+                VStack(spacing: 8) {
+                    // Header row
+                    HStack(spacing: 8) {
+                        Text("")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Text("This portion")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .frame(width: 95, alignment: .trailing)
+
+                        Text(nutritionType == .perServing ? "Per serving" : "Per 100\(nutritionMode.unit.localizedAbbreviation)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .frame(width: 100, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+
+                    Divider()
+
+                    FoodItemNutritionRow(
+                        label: "Carbs",
+                        portionValue: calculatePortionValue(baseValue: editedCarbs),
+                        baseValue: $editedCarbs,
+                        unit: "g",
+                        focusedField: $focusedField,
+                        fieldTag: .carbs
+                    )
+                    Divider()
+                    FoodItemNutritionRow(
+                        label: "Protein",
+                        portionValue: calculatePortionValue(baseValue: editedProtein),
+                        baseValue: $editedProtein,
+                        unit: "g",
+                        focusedField: $focusedField,
+                        fieldTag: .protein
+                    )
+                    Divider()
+                    FoodItemNutritionRow(
+                        label: "Fat",
+                        portionValue: calculatePortionValue(baseValue: editedFat),
+                        baseValue: $editedFat,
+                        unit: "g",
+                        focusedField: $focusedField,
+                        fieldTag: .fat
+                    )
+
+                    // Optional nutrients
+                    if showAllNutrients {
+                        Divider()
+                        // Editable calories row (with auto-calculation when not manually edited)
+                        FoodItemCaloriesRow(
+                            label: "Calories",
+                            portionValue: calculatePortionValue(baseValue: displayedCalories),
+                            baseValue: $editedCalories,
+                            calculatedValue: calculatedCalories,
+                            unit: "kcal",
+                            isCalculated: editedCalories == nil,
+                            focusedField: $focusedField,
+                            fieldTag: .calories
+                        )
+
+                        Divider()
+                        FoodItemNutritionRow(
+                            label: "Fiber",
+                            portionValue: calculatePortionValue(baseValue: editedFiber ?? 0),
+                            baseValue: Binding(
+                                get: { editedFiber ?? 0 },
+                                set: { editedFiber = $0 > 0 ? $0 : nil }
+                            ),
+                            unit: "g",
+                            focusedField: $focusedField,
+                            fieldTag: .fiber
+                        )
+
+                        Divider()
+                        FoodItemNutritionRow(
+                            label: "Sugar",
+                            portionValue: calculatePortionValue(baseValue: editedSugars ?? 0),
+                            baseValue: Binding(
+                                get: { editedSugars ?? 0 },
+                                set: { editedSugars = $0 > 0 ? $0 : nil }
+                            ),
+                            unit: "g",
+                            focusedField: $focusedField,
+                            fieldTag: .sugars
+                        )
+
+                        Divider()
+                        FoodItemServingSizeRow(
+                            servingSize: Binding(
+                                get: { editedServingSize ?? 0 },
+                                set: { editedServingSize = $0 > 0 ? $0 : nil }
+                            ),
+                            unit: nutritionMode.unit.localizedAbbreviation,
+                            focusedField: $focusedField,
+                            fieldTag: .servingSize
+                        )
+                    }
+
+                    // Button to reveal optional nutrients
+                    if !showAllNutrients {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showAllNutrients = true
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "chevron.down")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text("Show All Nutrients")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(.secondarySystemBackground))
+                )
+                .padding(.horizontal)
+
+                Spacer(minLength: 8)
+            }
+            .padding(.vertical)
+        }
+        .scrollDismissesKeyboard(.immediately)
+    }
+
+    private func calculatePortionValue(baseValue: Decimal) -> Decimal {
+        switch nutritionType {
+        case .per100:
+            return baseValue / 100 * portionSizeOrMultiplier
+        case .perServing:
+            return baseValue * portionSizeOrMultiplier
+        }
+    }
+
+    private func endEditing() {
+        #if canImport(UIKit)
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        #endif
+    }
+}
+
+// Helper view for food item nutrition rows
+private struct FoodItemNutritionRow: View {
+    let label: String
+    let portionValue: Decimal
+    @Binding var baseValue: Decimal
+    let unit: String
+    @FocusState.Binding var focusedField: FoodItemEditorSheet.NutritionField?
+    let fieldTag: FoodItemEditorSheet.NutritionField
+
+    @State private var textValue: String = ""
+
+    private var textBinding: Binding<String> {
+        Binding(
+            get: {
+                // When focused or if there's text, use the text value
+                // Otherwise show empty for 0 values
+                if textValue.isEmpty, baseValue == 0 {
+                    return ""
+                }
+                return textValue
+            },
+            set: { newValue in
+                textValue = newValue
+                // Convert to Decimal, treating empty as 0
+                if let decimal = Decimal(string: newValue) {
+                    baseValue = decimal
+                } else if newValue.isEmpty {
+                    baseValue = 0
+                }
+            }
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.primary.opacity(0.8))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Per portion value (calculated, read-only)
+            HStack(spacing: 2) {
+                Text("\(Double(portionValue), specifier: "%.1f")")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 28, alignment: .leading)
+            }
+            .frame(width: 95, alignment: .trailing)
+
+            // Base value (editable) - wrapped with keyboard dismissal
+            HStack(spacing: 4) {
+                TextField("0", text: textBinding)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: fieldTag)
+                    .onAppear {
+                        // Initialize text value from baseValue
+                        if baseValue > 0 {
+                            textValue = String(describing: baseValue)
+                        }
+                    }
+                    .onChange(of: baseValue) { _, newValue in
+                        // Update text when baseValue changes externally
+                        if newValue > 0 {
+                            textValue = String(describing: newValue)
+                        } else {
+                            textValue = ""
+                        }
+                    }
+
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 28, alignment: .leading)
+            }
+            .frame(width: 100, alignment: .trailing)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+    }
+}
+
+// Helper view for food item calories row (editable with auto-calculation option)
+private struct FoodItemCaloriesRow: View {
+    let label: String
+    let portionValue: Decimal
+    @Binding var baseValue: Decimal?
+    let calculatedValue: Decimal
+    let unit: String
+    let isCalculated: Bool
+    @FocusState.Binding var focusedField: FoodItemEditorSheet.NutritionField?
+    let fieldTag: FoodItemEditorSheet.NutritionField
+
+    @State private var textValue: String = ""
+
+    private var textBinding: Binding<String> {
+        Binding(
+            get: {
+                // When there's text, use it
+                // Otherwise show empty for nil/0 values
+                if textValue.isEmpty, baseValue == nil || baseValue == 0 {
+                    return ""
+                }
+                return textValue
+            },
+            set: { newValue in
+                textValue = newValue
+                // Convert to Decimal, treating empty as nil
+                if let decimal = Decimal(string: newValue), decimal > 0 {
+                    baseValue = decimal
+                } else if newValue.isEmpty {
+                    baseValue = nil
+                }
+            }
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Text(label)
+                    .font(.subheadline)
+                    .foregroundColor(.primary.opacity(0.8))
+
+                // Show formula indicator if auto-calculated
+                if isCalculated {
+                    Image(systemName: "function")
+                        .font(.system(size: 11))
+                        .foregroundColor(.blue.opacity(0.8))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Per portion value (calculated, read-only)
+            HStack(spacing: 2) {
+                Text("\(Int(truncating: portionValue as NSNumber))")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 28, alignment: .leading)
+            }
+            .frame(width: 95, alignment: .trailing)
+
+            // Base value (editable) - wrapped with keyboard dismissal
+            HStack(spacing: 4) {
+                TextField(
+                    calculatedValue > 0 ? "\(Int(truncating: calculatedValue as NSNumber))" : "0",
+                    text: textBinding
+                )
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .textFieldStyle(.roundedBorder)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .focused($focusedField, equals: fieldTag)
+                .onAppear {
+                    // Initialize text value from baseValue
+                    if let value = baseValue, value > 0 {
+                        textValue = String(Int(truncating: value as NSNumber))
+                    }
+                }
+                .onChange(of: baseValue) { _, newValue in
+                    // Update text when baseValue changes externally
+                    if let value = newValue, value > 0 {
+                        textValue = String(Int(truncating: value as NSNumber))
+                    } else {
+                        textValue = ""
+                    }
+                }
+
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 28, alignment: .leading)
+            }
+            .frame(width: 100, alignment: .trailing)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+    }
+}
+
+// Helper view for food item serving size row
+private struct FoodItemServingSizeRow: View {
+    @Binding var servingSize: Decimal
+    let unit: String
+    @FocusState.Binding var focusedField: FoodItemEditorSheet.NutritionField?
+    let fieldTag: FoodItemEditorSheet.NutritionField
+
+    @State private var textValue: String = ""
+
+    private var textBinding: Binding<String> {
+        Binding(
+            get: {
+                // When there's text, use it
+                // Otherwise show empty for 0 values
+                if textValue.isEmpty, servingSize == 0 {
+                    return ""
+                }
+                return textValue
+            },
+            set: { newValue in
+                textValue = newValue
+                // Convert to Decimal, treating empty as 0
+                if let decimal = Decimal(string: newValue), decimal > 0 {
+                    servingSize = decimal
+                } else if newValue.isEmpty {
+                    servingSize = 0
+                }
+            }
+        )
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Serving Size")
+                .font(.subheadline)
+                .foregroundColor(.primary.opacity(0.8))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Empty space for "per portion" column
+            Spacer()
+                .frame(width: 95, alignment: .trailing)
+
+            // Serving size value (editable) - wrapped with keyboard dismissal
+            HStack(spacing: 4) {
+                TextField("optional", text: textBinding)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: fieldTag)
+                    .onAppear {
+                        // Initialize text value from servingSize
+                        if servingSize > 0 {
+                            textValue = String(describing: servingSize)
+                        }
+                    }
+                    .onChange(of: servingSize) { _, newValue in
+                        // Update text when servingSize changes externally
+                        if newValue > 0 {
+                            textValue = String(describing: newValue)
+                        } else {
+                            textValue = ""
+                        }
+                    }
+
+                Text(unit)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 28, alignment: .leading)
+            }
+            .frame(width: 100, alignment: .trailing)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
     }
 }
 
@@ -889,129 +1824,62 @@ private struct TimePickerSheet: View {
     }
 }
 
-class SearchResultsState: ObservableObject {
-    @Published var editedItems: [String: EditableFoodItem] = [:]
-    @Published var deletedSections: Set<UUID> = []
-    @Published var collapsedSections: Set<UUID> = []
-
-    static var empty: SearchResultsState {
-        SearchResultsState()
-    }
-
-    struct EditableFoodItem: Identifiable {
-        let id = UUID()
-        let original: AnalysedFoodItem
-        var portionSize: Decimal
-        var isDeleted: Bool = false
-
-        init(from foodItem: AnalysedFoodItem) {
-            original = foodItem
-            portionSize = foodItem.portionEstimateSize ?? 0
-        }
-    }
-
-    // Public accessor for current edited state
-    var currentEditedItems: [EditableFoodItem] {
-        editedItems.values.filter { !$0.isDeleted }
-    }
-
-    // Helper to get current portion size for a food item
-    func portionSize(for foodItem: AnalysedFoodItem) -> Decimal {
-        let key = foodItem.id.uuidString
-        return editedItems[key]?.portionSize ?? foodItem.portionEstimateSize ?? 0
-    }
-
-    // Helper to check if item is deleted
-    func isDeleted(_ foodItem: AnalysedFoodItem) -> Bool {
-        let key = foodItem.id.uuidString
-        return editedItems[key]?.isDeleted ?? false
-    }
-
-    // Update portion size for an item
-    func updatePortion(for foodItem: AnalysedFoodItem, to newPortion: Decimal) {
-        let key = foodItem.id.uuidString
-        if editedItems[key] == nil {
-            editedItems[key] = EditableFoodItem(from: foodItem)
-        }
-        editedItems[key]?.portionSize = newPortion
-    }
-
-    // Mark item as deleted
-    func deleteItem(_ foodItem: AnalysedFoodItem) {
-        let key = foodItem.id.uuidString
-        if editedItems[key] == nil {
-            editedItems[key] = EditableFoodItem(from: foodItem)
-        }
-        editedItems[key]?.isDeleted = true
-    }
-
-    // Undelete an item
-    func undeleteItem(_ foodItem: AnalysedFoodItem) {
-        let key = foodItem.id.uuidString
-        editedItems[key]?.isDeleted = false
-    }
-
-    // Delete entire section
-    func deleteSection(_ sectionId: UUID) {
-        deletedSections.insert(sectionId)
-    }
-
-    // Check if section is deleted
-    func isSectionDeleted(_ sectionId: UUID) -> Bool {
-        deletedSections.contains(sectionId)
-    }
-
-    // MARK: - Collapsed sections helpers
-
-    func isSectionCollapsed(_ sectionId: UUID) -> Bool {
-        collapsedSections.contains(sectionId)
-    }
-
-    func toggleSectionCollapsed(_ sectionId: UUID) {
-        if collapsedSections.contains(sectionId) {
-            collapsedSections.remove(sectionId)
-        } else {
-            collapsedSections.insert(sectionId)
-        }
-    }
-
-    // Clear all state
-    func clear() {
-        editedItems.removeAll()
-        deletedSections.removeAll()
-        collapsedSections.removeAll()
-    }
-}
-
-private extension FoodItemSource {
+extension FoodItemSource {
     var icon: String {
         switch self {
-        case .ai:
-            return "photo"
+        case .aiPhoto:
+            return "camera.viewfinder"
+        case .aiMenu:
+            return "list.clipboard"
+        case .aiReceipe:
+            return "book.fill"
         case .aiText:
-            return "text.bubble"
+            return "character.bubble"
         case .search:
-            return "magnifyingglass"
+            return "magnifyingglass.circle"
         case .barcode:
-            return "barcode"
+            return "barcode.viewfinder"
         case .manual:
-            return "pencil"
+            return "square.and.pencil"
+        case .database:
+            return "archivebox.fill"
         }
     }
 }
 
-private extension FoodAnalysisResult {
+extension ConfidenceLevel {
+    var color: Color {
+        switch self {
+        case .high: return .green
+        case .medium: return .orange
+        case .low: return .red
+        }
+    }
+
+    var description: LocalizedStringKey {
+        switch self {
+        case .high: return "High"
+        case .medium: return "Medium"
+        case .low: return "Low"
+        }
+    }
+}
+
+private extension FoodItemGroup {
     var title: String {
         switch source {
         case .manual: NSLocalizedString("Manual entry", comment: "Section with manualy entered foods")
+        case .database: NSLocalizedString("Saved foods", comment: "Section with saved foods")
         case .barcode: NSLocalizedString("Barcode scan", comment: "Section with bar code scan results")
         case .search: NSLocalizedString("Online database search", comment: "Section with online database search results")
-        case .ai,
-             .aiText: briefDescription ?? textQuery ?? NSLocalizedString(
+        case .aiMenu,
+             .aiPhoto,
+             .aiReceipe,
+             .aiText:
+            briefDescription ?? textQuery ?? NSLocalizedString(
                 "AI Results",
                 comment: "Section with AI food analysis results, when details are unavailable"
             )
-        case nil: ""
         }
     }
 }
@@ -1118,7 +1986,7 @@ private struct TotalNutritionBadge: View {
 }
 
 private struct ConfidenceBadge: View {
-    let level: AIConfidenceLevel
+    let level: ConfidenceLevel
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1147,24 +2015,27 @@ private struct ConfidenceBadge: View {
     }
 }
 
-private struct AnalysisResultListSection: View {
-    let analysisResult: FoodAnalysisResult
+private struct FoodItemGroupListSection: View {
+    let analysisResult: FoodItemGroup
     @ObservedObject var state: FoodSearchStateModel
-    let onFoodItemSelected: (AIFoodItem, Date?) -> Void
     let selectedTime: Date?
+    let onPersist: (FoodItemDetailed) -> Void
 
     @State private var showInfoPopup = false
+
+    private var savedFoodIds: Set<UUID> {
+        Set(state.savedFoods?.foodItemsDetailed.map(\.id) ?? [])
+    }
 
     private var preferredInfoHeight: CGFloat {
         var base: CGFloat = 420
         if let desc = analysisResult.overallDescription, !desc.isEmpty { base += 60 }
         if let diabetes = analysisResult.diabetesConsiderations, !diabetes.isEmpty { base += 60 }
-        if let notes = analysisResult.notes, !notes.isEmpty { base += 60 }
         return min(max(base, 400), 640)
     }
 
     private var nonDeletedItemCount: Int {
-        analysisResult.foodItemsDetailed.filter { !state.resultsView.isDeleted($0) }.count
+        analysisResult.foodItemsDetailed.filter { !state.searchResultsState.isDeleted($0) }.count
     }
 
     var body: some View {
@@ -1175,11 +2046,11 @@ private struct AnalysisResultListSection: View {
                     // Collapse/Expand button (left side)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            state.resultsView.toggleSectionCollapsed(analysisResult.id)
+                            state.searchResultsState.toggleSectionCollapsed(analysisResult.id)
                         }
                     }) {
                         Image(
-                            systemName: state.resultsView
+                            systemName: state.searchResultsState
                                 .isSectionCollapsed(analysisResult.id) ? "chevron.right" : "chevron.down"
                         )
                         .font(.system(size: 14, weight: .semibold))
@@ -1192,7 +2063,7 @@ private struct AnalysisResultListSection: View {
                     // Title (tappable to collapse/expand)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            state.resultsView.toggleSectionCollapsed(analysisResult.id)
+                            state.searchResultsState.toggleSectionCollapsed(analysisResult.id)
                         }
                     }) {
                         Text(analysisResult.title)
@@ -1207,7 +2078,7 @@ private struct AnalysisResultListSection: View {
                     .buttonStyle(PlainButtonStyle())
 
                     // Info button (only for AI sources)
-                    if analysisResult.source == .ai || analysisResult.source == .aiText {
+                    if analysisResult.source.isAI {
                         Button(action: {
                             showInfoPopup = true
                         }) {
@@ -1217,21 +2088,17 @@ private struct AnalysisResultListSection: View {
                                     .foregroundColor(.blue)
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
-                                if let icon = analysisResult.source?.icon {
-                                    Image(systemName: icon)
-                                        .font(.system(size: 16))
-                                        .foregroundColor(.secondary)
-                                }
+                                Image(systemName: analysisResult.source.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.secondary)
                             }
                         }
                         .buttonStyle(PlainButtonStyle())
                     } else {
-                        if let icon = analysisResult.source?.icon {
-                            Image(systemName: icon)
-                                .font(.system(size: 16))
-                                .foregroundColor(.secondary)
-                                .frame(width: 44, height: 44)
-                        }
+                        Image(systemName: analysisResult.source.icon)
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                            .frame(width: 44, height: 44)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -1242,7 +2109,7 @@ private struct AnalysisResultListSection: View {
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button(role: .destructive) {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        state.resultsView.deleteSection(analysisResult.id)
+                        state.searchResultsState.deleteSection(analysisResult.id)
                     }
                 } label: {
                     Image(systemName: "trash")
@@ -1251,16 +2118,10 @@ private struct AnalysisResultListSection: View {
             .contextMenu {
                 Button(role: .destructive) {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        state.resultsView.deleteSection(analysisResult.id)
+                        state.searchResultsState.deleteSection(analysisResult.id)
                     }
                 } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-
-                Button {
-                    // TODO: Implement save functionality
-                } label: {
-                    Label("Save (TODO)", systemImage: "square.and.arrow.down")
+                    Label("Remove from meal", systemImage: "trash")
                 }
             }
             .sheet(isPresented: $showInfoPopup) {
@@ -1270,15 +2131,15 @@ private struct AnalysisResultListSection: View {
             }
 
             // Food Items
-            if !state.resultsView.isSectionCollapsed(analysisResult.id) {
+            if !state.searchResultsState.isSectionCollapsed(analysisResult.id) {
                 ForEach(Array(analysisResult.foodItemsDetailed.enumerated()), id: \.element.id) { index, foodItem in
                     Group {
-                        if state.resultsView.isDeleted(foodItem) {
+                        if state.searchResultsState.isDeleted(foodItem) {
                             DeletedFoodItemRow(
                                 foodItem: foodItem,
                                 onUndelete: {
                                     withAnimation(.easeInOut(duration: 0.2)) {
-                                        state.resultsView.undeleteItem(foodItem)
+                                        state.searchResultsState.undeleteItem(foodItem)
                                     }
                                 },
                                 isFirst: index == 0,
@@ -1287,32 +2148,20 @@ private struct AnalysisResultListSection: View {
                         } else {
                             FoodItemRow(
                                 foodItem: foodItem,
-                                portionSize: state.resultsView.portionSize(for: foodItem),
+                                portionSize: state.searchResultsState.portionSize(for: foodItem),
                                 onPortionChange: { newPortion in
-                                    state.resultsView.updatePortion(for: foodItem, to: newPortion)
+                                    state.searchResultsState.updatePortion(for: foodItem, to: newPortion)
                                 },
                                 onDelete: {
                                     withAnimation(.easeInOut(duration: 0.2)) {
-                                        state.resultsView.deleteItem(foodItem)
+                                        state.searchResultsState.deleteItem(foodItem)
                                     }
                                 },
-                                onSelect: {
-                                    let currentPortion = state.resultsView.portionSize(for: foodItem)
-                                    let selectedFood = AIFoodItem(
-                                        name: foodItem.name,
-                                        brand: foodItem.brand,
-                                        calories: foodItem.caloriesInPortion(portion: currentPortion) ?? 0,
-                                        carbs: foodItem.carbsInPortion(portion: currentPortion) ?? 0,
-                                        protein: foodItem.proteinInPortion(portion: currentPortion) ?? 0,
-                                        fat: foodItem.fatInPortion(portion: currentPortion) ?? 0,
-                                        imageURL: foodItem.imageURL,
-                                        source: foodItem.source
-                                    )
-                                    onFoodItemSelected(selectedFood, selectedTime)
-                                },
+                                onPersist: onPersist,
+                                onUpdate: state.updateItem,
+                                savedFoodIds: savedFoodIds,
                                 isFirst: index == 0,
-                                isLast: index == analysisResult.foodItemsDetailed.count - 1,
-                                showSelectButton: false
+                                isLast: index == analysisResult.foodItemsDetailed.count - 1
                             )
                         }
                     }
@@ -1324,7 +2173,7 @@ private struct AnalysisResultListSection: View {
 }
 
 struct DeletedFoodItemRow: View {
-    let foodItem: AnalysedFoodItem
+    let foodItem: FoodItemDetailed
     let onUndelete: () -> Void
     let isFirst: Bool
     let isLast: Bool
@@ -1372,7 +2221,7 @@ struct DeletedFoodItemRow: View {
 }
 
 private struct SectionInfoPopup: View {
-    let analysisResult: FoodAnalysisResult
+    let analysisResult: FoodItemGroup
 
     var body: some View {
         ScrollView {
@@ -1404,545 +2253,43 @@ private struct SectionInfoPopup: View {
                     .padding(.horizontal)
                 }
 
-                // Notes
-                if let notes = analysisResult.notes, !notes.isEmpty {
-                    InfoCard(icon: "note.text", title: "Notes", content: notes, color: .gray, embedIcon: true)
-                        .padding(.horizontal)
-                }
-
                 Spacer(minLength: 8)
             }
             .padding(.vertical)
         }
-    }
-}
-
-// MARK: - Editable Food Item Info Popup
-
-private struct EditableFoodItemInfoPopup: View {
-    @Binding var foodItem: AnalysedFoodItem
-    @Binding var portionSize: Decimal
-    @Binding var editedName: String
-    @Binding var editedCaloriesPer100: Decimal?
-    @Binding var editedCarbsPer100: Decimal
-    @Binding var editedProteinPer100: Decimal
-    @Binding var editedFatPer100: Decimal
-    @Binding var editedFiberPer100: Decimal?
-    @Binding var editedSugarsPer100: Decimal?
-    @Binding var editedServingSize: Decimal?
-
-    let allowNutritionEditing: Bool
-
-    @State private var sliderMultiplier: Double = 1.0
-    @State private var showAllNutrients: Bool = false
-    @FocusState private var focusedField: Field?
-
-    enum Field: Hashable {
-        case name
-        case carbs
-        case protein
-        case fat
-        case fiber
-        case sugars
-        case servingSize
-    }
-
-    private var baseServingSize: Decimal {
-        foodItem.standardServingSize ?? 100
-    }
-
-    private var unit: String {
-        (foodItem.units ?? .grams).localizedAbbreviation
-    }
-
-    private var hasOptionalNutrients: Bool {
-        (editedFiberPer100 != nil && editedFiberPer100! > 0) ||
-            (editedSugarsPer100 != nil && editedSugarsPer100! > 0) ||
-            (editedServingSize != nil && editedServingSize! > 0)
-    }
-
-    // Calculate calories from macros: Carbs (4 kcal/g) + Protein (4 kcal/g) + Fat (9 kcal/g)
-    private var calculatedCaloriesPer100: Decimal {
-        (editedCarbsPer100 * 4) + (editedProteinPer100 * 4) + (editedFatPer100 * 9)
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Portion Size Slider
-                VStack(spacing: 12) {
-                    Text("\(Double(portionSize), specifier: "%.0f") \(unit)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.orange)
-
-                    Slider(value: $sliderMultiplier, in: 0.25 ... 5.0, step: 0.25)
-                        .tint(.orange)
-                        .padding(.horizontal)
-
-                    HStack {
-                        Text("0.25x")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text("5x")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-                .onChange(of: sliderMultiplier) { _, newValue in
-                    portionSize = baseServingSize * Decimal(newValue)
-                    // Update the food item's portion size (calories are calculated automatically)
-                    foodItem = AnalysedFoodItem(
-                        name: editedName,
-                        confidence: nil,
-                        brand: nil,
-                        portionEstimate: nil,
-                        portionEstimateSize: portionSize,
-                        standardServing: nil,
-                        standardServingSize: baseServingSize,
-                        units: foodItem.units,
-                        preparationMethod: nil,
-                        visualCues: nil,
-                        glycemicIndex: nil,
-                        caloriesPer100: calculatedCaloriesPer100,
-                        carbsPer100: editedCarbsPer100,
-                        fatPer100: editedFatPer100,
-                        fiberPer100: editedFiberPer100,
-                        proteinPer100: editedProteinPer100,
-                        sugarsPer100: editedSugarsPer100,
-                        assessmentNotes: nil,
-                        imageURL: nil,
-                        imageFrontURL: nil,
-                        source: .manual
-                    )
-                }
-
-                // Nutrition Table with Editable Per100 values
-                VStack(spacing: 8) {
-                    // Header row
-                    HStack(spacing: 8) {
-                        Text("")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Text("This portion")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .trailing)
-
-                        Text("Per 100\(unit)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                            .frame(width: 100, alignment: .trailing)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-
-                    Divider()
-
-                    EditableDetailedNutritionRow(
-                        label: "Carbs",
-                        portionValue: editedCarbsPer100 / 100 * portionSize,
-                        per100Value: $editedCarbsPer100,
-                        unit: "g",
-                        isEditable: allowNutritionEditing,
-                        focusedField: $focusedField,
-                        field: .carbs
-                    )
-                    Divider()
-                    EditableDetailedNutritionRow(
-                        label: "Protein",
-                        portionValue: editedProteinPer100 / 100 * portionSize,
-                        per100Value: $editedProteinPer100,
-                        unit: "g",
-                        isEditable: allowNutritionEditing,
-                        focusedField: $focusedField,
-                        field: .protein
-                    )
-                    Divider()
-                    EditableDetailedNutritionRow(
-                        label: "Fat",
-                        portionValue: editedFatPer100 / 100 * portionSize,
-                        per100Value: $editedFatPer100,
-                        unit: "g",
-                        isEditable: allowNutritionEditing,
-                        focusedField: $focusedField,
-                        field: .fat
-                    )
-
-                    // Optional: Fiber (only show if toggled or has value)
-                    if showAllNutrients {
-                        Divider()
-                        EditableDetailedNutritionRow(
-                            label: "Fiber",
-                            portionValue: (editedFiberPer100 ?? 0) / 100 * portionSize,
-                            per100Value: Binding(
-                                get: { editedFiberPer100 ?? 0 },
-                                set: { editedFiberPer100 = $0 > 0 ? $0 : nil }
-                            ),
-                            unit: "g",
-                            isEditable: allowNutritionEditing,
-                            focusedField: $focusedField,
-                            field: .fiber
-                        )
-                    }
-
-                    // Optional: Sugars (only show if toggled or has value)
-                    if showAllNutrients {
-                        Divider()
-                        EditableDetailedNutritionRow(
-                            label: "Sugar",
-                            portionValue: (editedSugarsPer100 ?? 0) / 100 * portionSize,
-                            per100Value: Binding(
-                                get: { editedSugarsPer100 ?? 0 },
-                                set: { editedSugarsPer100 = $0 > 0 ? $0 : nil }
-                            ),
-                            unit: "g",
-                            isEditable: allowNutritionEditing,
-                            focusedField: $focusedField,
-                            field: .sugars
-                        )
-                    }
-
-                    Divider()
-                    // Display-only calculated calories (read-only)
-                    CalculatedCaloriesRow(
-                        label: "Calories",
-                        portionValue: calculatedCaloriesPer100 / 100 * portionSize,
-                        per100Value: calculatedCaloriesPer100,
-                        unit: "kcal"
-                    )
-
-                    // Optional: Serving Size (only show if toggled)
-                    if showAllNutrients {
-                        Divider()
-                        EditableServingSizeRow(
-                            servingSize: Binding(
-                                get: { editedServingSize ?? 0 },
-                                set: { editedServingSize = $0 > 0 ? $0 : nil }
-                            ),
-                            unit: unit,
-                            isEditable: allowNutritionEditing,
-                            focusedField: $focusedField,
-                            field: .servingSize
-                        )
-                    }
-
-                    // Button to reveal optional nutrients (disappears after clicked)
-                    if allowNutritionEditing && !showAllNutrients {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showAllNutrients = true
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: "chevron.down")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("Show All Nutrients")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                )
-                .padding(.horizontal)
-
-                Spacer(minLength: 8)
-            }
-            .padding(.vertical)
-        }
-        .onAppear {
-            if baseServingSize > 0 {
-                sliderMultiplier = Double(portionSize / baseServingSize)
-            }
-            // Auto-expand if food already has optional nutrients
-            if hasOptionalNutrients {
-                showAllNutrients = true
-            }
-        }
-    }
-
-    // Auto-generate food name based on macros
-    private var autoGeneratedName: String {
-        let carbs = editedCarbsPer100
-        let protein = editedProteinPer100
-        let fat = editedFatPer100
-
-        // Calculate total macros
-        let total = carbs + protein + fat
-
-        guard total > 0 else { return "Custom Food" }
-
-        // Calculate percentages
-        let carbPercent = (carbs / total) * 100
-        let proteinPercent = (protein / total) * 100
-        let fatPercent = (fat / total) * 100
-
-        // Determine dominant macro (>50%)
-        if carbPercent > 50 {
-            if proteinPercent > 20 {
-                return "Carb & Protein Meal"
-            } else if fatPercent > 20 {
-                return "Carb & Fat Snack"
-            } else {
-                return "High-Carb Food"
-            }
-        } else if proteinPercent > 50 {
-            if carbPercent > 20 {
-                return "Protein & Carb Meal"
-            } else if fatPercent > 20 {
-                return "Protein & Fat Meal"
-            } else {
-                return "High-Protein Food"
-            }
-        } else if fatPercent > 50 {
-            if carbPercent > 20 {
-                return "Fat & Carb Snack"
-            } else if proteinPercent > 20 {
-                return "Fat & Protein Meal"
-            } else {
-                return "High-Fat Food"
-            }
-        }
-
-        // Balanced macros - check if any are very low
-        if carbPercent < 10 && proteinPercent > 25 && fatPercent > 25 {
-            return "Low-Carb Meal"
-        } else if fatPercent < 10 && carbPercent > 25 && proteinPercent > 25 {
-            return "Low-Fat Meal"
-        } else if proteinPercent < 10 && carbPercent > 25 && fatPercent > 25 {
-            return "Low-Protein Snack"
-        }
-
-        // If nothing specific matches, it's balanced
-        return "Balanced Meal"
-    }
-}
-
-// Helper view for editable detailed nutrition rows
-private struct EditableDetailedNutritionRow: View {
-    let label: String
-    let portionValue: Decimal
-    @Binding var per100Value: Decimal
-    let unit: String
-    let isEditable: Bool
-
-    var focusedField: FocusState<EditableFoodItemInfoPopup.Field?>.Binding
-    let field: EditableFoodItemInfoPopup.Field
-
-    @State private var editText: String = ""
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundColor(.primary.opacity(0.8))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Per portion value (calculated, read-only)
-            HStack(spacing: 2) {
-                Text("\(Double(portionValue), specifier: "%.1f")")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                Text(unit)
-                    .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .frame(width: 24, alignment: .leading)
-            }
-            .frame(width: 80, alignment: .trailing)
-
-            // Per 100g/ml value (editable if enabled)
-            if isEditable {
-                HStack(spacing: 4) {
-                    TextField("0", text: $editText)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.roundedBorder)
-                        .focused(focusedField, equals: field)
-                        .onChange(of: editText) { _, newValue in
-                            if newValue.isEmpty {
-                                // User cleared the field, set to 0
-                                per100Value = 0
-                            } else if let decimal = Decimal(string: newValue) {
-                                per100Value = decimal
-                            }
-                        }
-                        .onAppear {
-                            // Only show value if it's greater than 0, otherwise leave empty
-                            editText = per100Value > 0 ? "\(per100Value)" : ""
-                        }
-
-                    Text(unit)
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-                .frame(width: 100, alignment: .trailing)
-                .padding(.leading, 8)
-            } else {
-                HStack(spacing: 2) {
-                    Text("\(Double(per100Value), specifier: "%.1f")")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    Text(unit)
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.7))
-                        .frame(width: 24, alignment: .leading)
-                }
-                .frame(width: 100, alignment: .trailing)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-    }
-}
-
-// Helper view for displaying calculated (read-only) calories
-private struct CalculatedCaloriesRow: View {
-    let label: String
-    let portionValue: Decimal
-    let per100Value: Decimal
-    let unit: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundColor(.primary.opacity(0.8))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Per portion value (calculated, read-only)
-            HStack(spacing: 2) {
-                Text("\(Double(portionValue), specifier: "%.1f")")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                Text(unit)
-                    .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .frame(width: 24, alignment: .leading)
-            }
-            .frame(width: 80, alignment: .trailing)
-
-            // Per 100g/ml value (calculated, read-only)
-            HStack(spacing: 4) {
-                Text("\(Double(per100Value), specifier: "%.1f")")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Text(unit)
-                    .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-            .frame(width: 100, alignment: .trailing)
-            .padding(.leading, 8)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-    }
-}
-
-// Helper view for editable serving size row
-private struct EditableServingSizeRow: View {
-    @Binding var servingSize: Decimal
-    let unit: String
-    let isEditable: Bool
-
-    var focusedField: FocusState<EditableFoodItemInfoPopup.Field?>.Binding
-    let field: EditableFoodItemInfoPopup.Field
-
-    @State private var editText: String = ""
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("Serving Size")
-                .font(.subheadline)
-                .foregroundColor(.primary.opacity(0.8))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Empty space for "per portion" column (N/A for serving size)
-            Spacer()
-                .frame(width: 80, alignment: .trailing)
-
-            // Serving size value (editable if enabled)
-            if isEditable {
-                HStack(spacing: 4) {
-                    TextField("optional", text: $editText)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.roundedBorder)
-                        .focused(focusedField, equals: field)
-                        .onChange(of: editText) { _, newValue in
-                            if newValue.isEmpty {
-                                // User cleared the field, set to 0
-                                servingSize = 0
-                            } else if let decimal = Decimal(string: newValue) {
-                                servingSize = decimal
-                            }
-                        }
-                        .onAppear {
-                            // Only show value if it's greater than 0, otherwise leave empty
-                            editText = servingSize > 0 ? "\(servingSize)" : ""
-                        }
-
-                    Text(unit)
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-                .frame(width: 100, alignment: .trailing)
-                .padding(.leading, 8)
-            } else {
-                HStack(spacing: 2) {
-                    if servingSize > 0 {
-                        Text("\(Double(servingSize), specifier: "%.1f")")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Text(unit)
-                            .font(.caption2)
-                            .foregroundColor(.secondary.opacity(0.7))
-                            .frame(width: 24, alignment: .leading)
-                    } else {
-                        Text("—")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary.opacity(0.7))
-                    }
-                }
-                .frame(width: 100, alignment: .trailing)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
     }
 }
 
 private struct FoodItemInfoPopup: View {
-    let foodItem: AnalysedFoodItem
+    let foodItem: FoodItemDetailed
     let portionSize: Decimal
 
+    // Helper to extract nutrition values
+    private var nutritionValues: NutritionValues? {
+        switch foodItem.nutrition {
+        case let .per100(values):
+            return values
+        case let .perServing(values):
+            return values
+        }
+    }
+
+    private var isPerServing: Bool {
+        if case .perServing = foodItem.nutrition {
+            return true
+        }
+        return false
+    }
+
     // Helper functions to avoid type inference issues
-    private func shouldShowStandardServing(_ item: AnalysedFoodItem) -> Bool {
+    private func shouldShowStandardServing(_ item: FoodItemDetailed) -> Bool {
         let hasDescription = item.standardServing != nil && !(item.standardServing?.isEmpty ?? true)
         let hasSize = item.standardServingSize != nil
         return hasDescription || hasSize
     }
 
     @ViewBuilder private func standardServingContent(
-        foodItem: AnalysedFoodItem,
+        foodItem: FoodItemDetailed,
         portionSize _: Decimal,
         unit _: String
     ) -> some View {
@@ -1953,7 +2300,7 @@ private struct FoodItemInfoPopup: View {
         }
     }
 
-    private func standardServingTitle(foodItem: AnalysedFoodItem, unit: String) -> String {
+    private func standardServingTitle(foodItem: FoodItemDetailed, unit: String) -> String {
         if let servingSize = foodItem.standardServingSize {
             let formattedSize = String(format: "%.0f", Double(truncating: servingSize as NSNumber))
             return "Standard Serving - \(formattedSize) \(unit)"
@@ -1967,12 +2314,49 @@ private struct FoodItemInfoPopup: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // Title
-                Text(foodItem.name)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                    .padding(.horizontal)
+                // Title and image
+                HStack(alignment: .top, spacing: 12) {
+                    Text(foodItem.name)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Product image (if available)
+                    if let imageURLString = foodItem.imageURL, let imageURL = URL(string: imageURLString) {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .empty:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 80, height: 80)
+                                    .overlay(
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    )
+                            case let .success(image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            case .failure:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 80, height: 80)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.secondary)
+                                    )
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
                 if let visualCues = foodItem.visualCues, !visualCues.isEmpty {
                     InfoCard(icon: "eye.fill", title: "Visual Cues", content: visualCues, color: .blue, embedIcon: true)
                         .padding(.horizontal)
@@ -1988,13 +2372,24 @@ private struct FoodItemInfoPopup: View {
                             .opacity(0.3)
 
                         HStack(spacing: 3) {
-                            Text("\(amount)")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(.primary)
-                            Text(unit)
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.primary)
-                                .opacity(0.4)
+                            switch foodItem.nutrition {
+                            case .per100:
+                                Text("\(amount)")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundColor(.primary)
+                                Text(unit)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                    .opacity(0.4)
+                            case .perServing:
+                                Text("\(amount)")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundColor(.primary)
+                                Text(portionSize == 1 ? "serving" : "servings")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                    .opacity(0.4)
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -2007,16 +2402,14 @@ private struct FoodItemInfoPopup: View {
                     // Source icon and confidence on the right
                     HStack(spacing: 8) {
                         // Confidence badge (if AI source)
-                        if foodItem.source == .ai || foodItem.source == .aiText, let confidence = foodItem.confidence {
+                        if foodItem.source.isAI, let confidence = foodItem.confidence {
                             ConfidenceBadge(level: confidence)
                         }
 
                         // Source icon
-                        if let icon = foodItem.source?.icon {
-                            Image(systemName: icon)
-                                .font(.system(size: 16))
-                                .foregroundColor(.secondary)
-                        }
+                        Image(systemName: foodItem.source.icon)
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
                     }
                 }
                 .padding(.horizontal)
@@ -2033,7 +2426,7 @@ private struct FoodItemInfoPopup: View {
                             .foregroundColor(.secondary)
                             .frame(width: 90, alignment: .trailing)
 
-                        Text("Per 100\(unit)")
+                        Text(isPerServing ? "Per serving" : "Per 100\(unit)")
                             .font(.caption)
                             .fontWeight(.semibold)
                             .foregroundColor(.secondary)
@@ -2046,49 +2439,53 @@ private struct FoodItemInfoPopup: View {
 
                     DetailedNutritionRow(
                         label: "Carbs",
-                        portionValue: foodItem.carbsInPortion(portion: portionSize),
-                        per100Value: foodItem.carbsPer100,
+                        portionValue: foodItem.carbsInThisPortion,
+                        per100Value: nutritionValues?.carbs,
                         unit: "g"
                     )
                     Divider()
                     DetailedNutritionRow(
                         label: "Protein",
-                        portionValue: foodItem.proteinInPortion(portion: portionSize),
-                        per100Value: foodItem.proteinPer100,
+                        portionValue: foodItem.proteinInThisPortion,
+                        per100Value: nutritionValues?.protein,
                         unit: "g"
                     )
                     Divider()
                     DetailedNutritionRow(
                         label: "Fat",
-                        portionValue: foodItem.fatInPortion(portion: portionSize),
-                        per100Value: foodItem.fatPer100,
+                        portionValue: foodItem.fatInThisPortion,
+                        per100Value: nutritionValues?.fat,
                         unit: "g"
                     )
 
                     // Optional additional nutrition
-                    if let fiberPer100 = foodItem.fiberPer100, fiberPer100 > 0 {
+                    if let fiber = nutritionValues?.fiber, fiber > 0 {
                         Divider()
                         DetailedNutritionRow(
                             label: "Fiber",
-                            portionValue: fiberPer100 / 100 * portionSize,
-                            per100Value: fiberPer100,
+                            portionValue: isPerServing ?
+                                (foodItem.servingsMultiplier.map { fiber * $0 }) :
+                                (foodItem.portionSize.map { fiber / 100 * $0 }),
+                            per100Value: fiber,
                             unit: "g"
                         )
                     }
-                    if let sugarsPer100 = foodItem.sugarsPer100, sugarsPer100 > 0 {
+                    if let sugars = nutritionValues?.sugars, sugars > 0 {
                         Divider()
                         DetailedNutritionRow(
                             label: "Sugar",
-                            portionValue: sugarsPer100 / 100 * portionSize,
-                            per100Value: sugarsPer100,
+                            portionValue: isPerServing ?
+                                (foodItem.servingsMultiplier.map { sugars * $0 }) :
+                                (foodItem.portionSize.map { sugars / 100 * $0 }),
+                            per100Value: sugars,
                             unit: "g"
                         )
                     }
                     Divider()
                     DetailedNutritionRow(
                         label: "Calories",
-                        portionValue: foodItem.caloriesInPortion(portion: portionSize),
-                        per100Value: foodItem.caloriesPer100,
+                        portionValue: foodItem.caloriesInThisPortion,
+                        per100Value: nutritionValues?.calories,
                         unit: "kcal"
                     )
                 }
@@ -2279,6 +2676,47 @@ struct InfoCard: View {
     }
 }
 
+// MARK: - Food Item Thumbnail
+
+/// Reusable component for displaying food item product images
+private struct FoodItemThumbnail: View {
+    let imageURL: String?
+
+    var body: some View {
+        if let imageURLString = imageURL, let imageURL = URL(string: imageURLString) {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .empty:
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            ProgressView()
+                                .controlSize(.small)
+                        )
+                case let .success(image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                case .failure:
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.systemGray5))
+                        .frame(width: 60, height: 60)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.system(size: 20))
+                                .foregroundColor(.secondary)
+                        )
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        }
+    }
+}
+
 // Helper for rounded corners on specific corners
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
@@ -2312,92 +2750,81 @@ struct RoundedCorner: Shape {
 // MARK: - Food Item Row
 
 struct FoodItemRow: View {
-    let foodItem: AnalysedFoodItem
+    let foodItem: FoodItemDetailed
     let portionSize: Decimal
     let onPortionChange: ((Decimal) -> Void)?
     let onDelete: (() -> Void)?
-    let onSelect: () -> Void
+    let onPersist: ((FoodItemDetailed) -> Void)?
+    let onUpdate: ((FoodItemDetailed) -> Void)?
+    let savedFoodIds: Set<UUID>
     let isFirst: Bool
     let isLast: Bool
-    let showSelectButton: Bool
 
     @State private var showItemInfo = false
     @State private var showPortionAdjuster = false
+    @State private var showEditSheet = false
     @State private var sliderMultiplier: Double = 1.0
+
+    private var isSaved: Bool {
+        savedFoodIds.contains(foodItem.id)
+    }
+
     private var hasNutritionInfo: Bool {
-        foodItem.caloriesPer100 != nil || foodItem.carbsPer100 != nil || foodItem.proteinPer100 != nil || foodItem
-            .fatPer100 != nil
+        switch foodItem.nutrition {
+        case let .per100(values):
+            return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+        case let .perServing(values):
+            return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+        }
     }
 
-    private var baseServingSize: Decimal {
-        foodItem.standardServingSize ?? 100
-    }
-
-    // Helper to determine if confidence badge should be shown
-    private var shouldShowConfidence: Bool {
-        (foodItem.source == .ai || foodItem.source == .aiText) && foodItem.confidence != nil
+    private var isManualEntry: Bool {
+        foodItem.source == .manual
     }
 
     var body: some View {
         VStack(spacing: 0) {
             // Main Row Content
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Text(foodItem.name)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text(foodItem.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Select button (when in search results mode)
-                    if showSelectButton {
-                        Button(action: onSelect) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("Select")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color.accentColor)
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-
-                    // Source icon with confidence badge (if AI)
-                    if !showSelectButton {
-                        HStack(spacing: 0) {
-                            // Confidence badge (if AI source)
-                            if shouldShowConfidence, let confidence = foodItem.confidence {
+                        if foodItem.source.isAI, let confidence = foodItem.confidence {
+                            HStack(spacing: 0) {
                                 ConfidenceBadge(level: confidence)
                             }
                         }
                     }
-                }
 
-                HStack(spacing: 8) {
-                    PortionSizeBadge(
-                        value: portionSize,
-                        color: .orange,
-                        icon: "scalemass.fill",
-                        foodItem: foodItem
-                    )
+                    HStack(spacing: 8) {
+                        PortionSizeBadge(
+                            value: portionSize,
+                            color: .orange,
+                            icon: "scalemass.fill",
+                            foodItem: foodItem
+                        )
 
-                    if let servingSize = foodItem.standardServingSize {
-                        Text("\(Double(portionSize / servingSize), specifier: "%.1f")× serving")
-                            .font(.caption)
-                            .foregroundColor(.primary)
-                            .opacity(0.7)
+                        // Only show serving multiplier for per100 items
+                        if case .per100 = foodItem.nutrition {
+                            if let servingSize = foodItem.standardServingSize {
+                                Text("\(Double(portionSize / servingSize), specifier: "%.1f")× serving")
+                                    .font(.caption)
+                                    .foregroundColor(.primary)
+                                    .opacity(0.7)
+                            }
+                        }
                     }
                 }
+
+                // Product image thumbnail (if available) - on the right
+                FoodItemThumbnail(imageURL: foodItem.imageURL)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -2407,25 +2834,40 @@ struct FoodItemRow: View {
             }
             .contextMenu {
                 if onPortionChange != nil {
-                    Button {
-                        showPortionAdjuster = true
-                    } label: {
-                        Label("Edit Portion", systemImage: "slider.horizontal.3")
+                    if isManualEntry {
+                        Button {
+                            showEditSheet = true
+                        } label: {
+                            Label("Edit Food", systemImage: "pencil")
+                        }
+                    } else {
+                        Button {
+                            showPortionAdjuster = true
+                        } label: {
+                            Label("Edit Portion", systemImage: "slider.horizontal.3")
+                        }
                     }
                 }
 
-                if onDelete != nil {
+                if foodItem.source != .database {
+                    if isSaved {
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    } else if let onPersist = onPersist {
+                        Button {
+                            onPersist(foodItem)
+                        } label: {
+                            Label("Save", systemImage: "square.and.arrow.down")
+                        }
+                    }
+                }
+
+                if let onDelete = onDelete {
                     Button(role: .destructive) {
-                        onDelete?()
+                        onDelete()
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("Remove from meal", systemImage: "trash")
                     }
-                }
-
-                Button {
-                    // TODO: Implement save functionality
-                } label: {
-                    Label("Save (TODO)", systemImage: "square.and.arrow.down")
                 }
             }
             .sheet(isPresented: $showItemInfo) {
@@ -2436,17 +2878,49 @@ struct FoodItemRow: View {
 
             // Compact nutrition info
             HStack(spacing: 6) {
-                if let carbs = foodItem.carbsInPortion(portion: portionSize) {
-                    NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
-                }
-                if let protein = foodItem.proteinInPortion(portion: portionSize), protein > 0 {
-                    NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
-                }
-                if let fat = foodItem.fatInPortion(portion: portionSize), fat > 0 {
-                    NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
-                }
-                if let calories = foodItem.caloriesInPortion(portion: portionSize), calories > 0 {
-                    NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
+                switch foodItem.nutrition {
+                case .per100:
+                    NutritionBadge(
+                        value: foodItem.carbsInPortion(portion: portionSize) ?? 0,
+                        label: "carbs",
+                        color: NutritionBadgeConfig.carbsColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.proteinInPortion(portion: portionSize) ?? 0,
+                        label: "protein",
+                        color: NutritionBadgeConfig.proteinColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.fatInPortion(portion: portionSize) ?? 0,
+                        label: "fat",
+                        color: NutritionBadgeConfig.fatColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.caloriesInPortion(portion: portionSize) ?? 0,
+                        unit: "kcal",
+                        color: NutritionBadgeConfig.caloriesColor
+                    )
+                case .perServing:
+                    NutritionBadge(
+                        value: foodItem.carbsInServings(multiplier: portionSize) ?? 0,
+                        label: "carbs",
+                        color: NutritionBadgeConfig.carbsColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.proteinInServings(multiplier: portionSize) ?? 0,
+                        label: "protein",
+                        color: NutritionBadgeConfig.proteinColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.fatInServings(multiplier: portionSize) ?? 0,
+                        label: "fat",
+                        color: NutritionBadgeConfig.fatColor
+                    )
+                    NutritionBadge(
+                        value: foodItem.caloriesInServings(multiplier: portionSize) ?? 0,
+                        unit: "kcal",
+                        color: NutritionBadgeConfig.caloriesColor
+                    )
                 }
             }
             .padding(.horizontal, 16)
@@ -2467,12 +2941,21 @@ struct FoodItemRow: View {
         }
         .when(onPortionChange != nil) { view in
             view.swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button {
-                    showPortionAdjuster = true
-                } label: {
-                    Label("Edit Portion", systemImage: "slider.horizontal.3")
+                if isManualEntry {
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .tint(.orange)
+                } else {
+                    Button {
+                        showPortionAdjuster = true
+                    } label: {
+                        Label("Edit Portion", systemImage: "slider.horizontal.3")
+                    }
+                    .tint(.orange)
                 }
-                .tint(.orange)
             }
         }
         .when(onPortionChange != nil) { view in
@@ -2485,38 +2968,85 @@ struct FoodItemRow: View {
                         onPortionChange?(newPortion)
                         showPortionAdjuster = false
                     },
-                    onReset: foodItem.portionEstimateSize != nil ? {
-                        if let original = foodItem.portionEstimateSize {
-                            onPortionChange?(original)
-                            showPortionAdjuster = false
+                    onReset: {
+                        switch foodItem.nutrition {
+                        case .per100:
+                            return foodItem.portionSize != nil
+                        case .perServing:
+                            return foodItem.servingsMultiplier != nil
+                        }
+                    }() ? {
+                        switch foodItem.nutrition {
+                        case .per100:
+                            if let original = foodItem.portionSize {
+                                onPortionChange?(original)
+                                showPortionAdjuster = false
+                            }
+                        case .perServing:
+                            if let original = foodItem.servingsMultiplier {
+                                onPortionChange?(original)
+                                showPortionAdjuster = false
+                            }
                         }
                     } : nil,
                     onCancel: {
                         showPortionAdjuster = false
                     }
                 )
-                .presentationDetents([.height(
-                    hasNutritionInfo ? (foodItem.portionEstimateSize != nil ? 420 : 400) :
-                        (foodItem.portionEstimateSize != nil ? 340 : 300)
-                )])
+                .presentationDetents([.height({
+                    let hasReset: Bool
+                    switch foodItem.nutrition {
+                    case .per100:
+                        hasReset = foodItem.portionSize != nil
+                    case .perServing:
+                        hasReset = foodItem.servingsMultiplier != nil
+                    }
+                    return hasNutritionInfo ? (hasReset ? 420 : 400) : (hasReset ? 340 : 300)
+                }())])
                 .presentationDragIndicator(.visible)
             }
         }
+        .sheet(isPresented: $showEditSheet) {
+            FoodItemEditorSheet(
+                existingItem: foodItem,
+                title: "Edit Food",
+                allowServingMultiplierEdit: true, // Allow editing multiplier for foods in the main list
+                onSave: { editedItem in
+                    onUpdate?(editedItem)
+                    showEditSheet = false
+                },
+                onCancel: {
+                    showEditSheet = false
+                }
+            )
+            .presentationDetents([.height(600), .large])
+            .presentationDragIndicator(.visible)
+        }
         .onChange(of: portionSize) { _, newValue in
             // Update multiplier when portion size changes externally
-            if baseServingSize > 0 {
-                sliderMultiplier = Double(newValue / baseServingSize)
+            switch foodItem.nutrition {
+            case .per100:
+                // For per100, slider directly represents grams/ml
+                sliderMultiplier = Double(newValue)
+            case .perServing:
+                // For perServing, slider represents multiplier
+                sliderMultiplier = Double(newValue)
             }
         }
         .onAppear {
             // Calculate initial multiplier based on current portion size
-            if baseServingSize > 0 {
-                sliderMultiplier = Double(portionSize / baseServingSize)
+            switch foodItem.nutrition {
+            case .per100:
+                // For per100, slider directly represents grams/ml
+                sliderMultiplier = Double(portionSize)
+            case .perServing:
+                // For perServing, slider represents multiplier
+                sliderMultiplier = Double(portionSize)
             }
         }
     }
 
-    private func preferredItemInfoHeight(for item: AnalysedFoodItem) -> CGFloat {
+    private func preferredItemInfoHeight(for item: FoodItemDetailed) -> CGFloat {
         var base: CGFloat = 480
         if let notes = item.assessmentNotes, !notes.isEmpty { base += 40 }
         if let prep = item.preparationMethod, !prep.isEmpty { base += 30 }
@@ -2532,7 +3062,7 @@ extension FoodItemRow {
         let value: Decimal
         let color: Color
         let icon: String
-        let foodItem: AnalysedFoodItem
+        let foodItem: FoodItemDetailed
 
         @Environment(\.colorScheme) private var colorScheme
 
@@ -2544,11 +3074,20 @@ extension FoodItemRow {
                         .opacity(0.3)
                 }
                 HStack(spacing: 2) {
-                    Text("\(Double(value), specifier: "%.0f")")
-                        .font(.system(size: 15, weight: .bold))
-                    Text(NSLocalizedString((foodItem.units ?? .grams).localizedAbbreviation, comment: ""))
-                        .font(.system(size: 13, weight: .semibold))
-                        .opacity(0.4)
+                    switch foodItem.nutrition {
+                    case .per100:
+                        Text("\(Double(value), specifier: "%.0f")")
+                            .font(.system(size: 15, weight: .bold))
+                        Text(NSLocalizedString((foodItem.units ?? .grams).localizedAbbreviation, comment: ""))
+                            .font(.system(size: 13, weight: .semibold))
+                            .opacity(0.4)
+                    case .perServing:
+                        Text("\(Double(value), specifier: "%.1f")")
+                            .font(.system(size: 15, weight: .bold))
+                        Text(value == 1 ? "serving" : "servings")
+                            .font(.system(size: 13, weight: .semibold))
+                            .opacity(0.4)
+                    }
                 }
             }
             .foregroundColor(.primary)
@@ -2561,61 +3100,162 @@ extension FoodItemRow {
 
     private struct PortionAdjusterView: View {
         let currentPortion: Decimal
-        let foodItem: AnalysedFoodItem
+        let foodItem: FoodItemDetailed
         @Binding var sliderMultiplier: Double
         let onSave: (Decimal) -> Void
         let onReset: (() -> Void)?
         let onCancel: () -> Void
 
-        private var baseServingSize: Decimal {
-            foodItem.standardServingSize ?? 100
+        private var isPerServing: Bool {
+            if case .perServing = foodItem.nutrition {
+                return true
+            }
+            return false
         }
 
         private var unit: String {
-            (foodItem.units ?? .grams).localizedAbbreviation
+            switch foodItem.nutrition {
+            case .per100:
+                return (foodItem.units ?? .grams).localizedAbbreviation
+            case .perServing:
+                return "serving"
+            }
         }
 
         var calculatedPortion: Decimal {
-            baseServingSize * Decimal(sliderMultiplier)
+            switch foodItem.nutrition {
+            case .per100:
+                // For per100, slider directly controls grams/ml
+                return Decimal(sliderMultiplier)
+            case .perServing:
+                // For perServing, slider controls multiplier
+                return Decimal(sliderMultiplier)
+            }
         }
 
         private func resetSliderToOriginal() {
-            if let original = foodItem.portionEstimateSize, baseServingSize > 0 {
-                sliderMultiplier = Double(original / baseServingSize)
+            switch foodItem.nutrition {
+            case .per100:
+                if let original = foodItem.portionSize {
+                    sliderMultiplier = Double(original)
+                }
+            case .perServing:
+                if let original = foodItem.servingsMultiplier {
+                    sliderMultiplier = Double(original)
+                }
+            }
+        }
+
+        private func formattedServingMultiplier(_ value: Decimal) -> String {
+            let doubleValue = Double(truncating: value as NSNumber)
+            return String(format: "%.2f×", doubleValue)
+        }
+
+        private var sliderRange: ClosedRange<Double> {
+            switch foodItem.nutrition {
+            case .per100:
+                10.0 ... 600.0
+            case .perServing:
+                0.25 ... 10.0
+            }
+        }
+
+        private var sliderStep: Double.Stride {
+            switch foodItem.nutrition {
+            case .per100:
+                5.0
+            case .perServing:
+                0.25
+            }
+        }
+
+        private var sliderMinLabel: String {
+            switch foodItem.nutrition {
+            case .per100:
+                return "10\(unit)"
+            case .perServing:
+                return "0.25x"
+            }
+        }
+
+        private var sliderMaxLabel: String {
+            switch foodItem.nutrition {
+            case .per100:
+                return "600\(unit)"
+            case .perServing:
+                return "10x"
             }
         }
 
         var body: some View {
             VStack(spacing: 20) {
-                VStack(spacing: 4) {
-                    Text(foodItem.name)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(spacing: 4) {
+                        Text(foodItem.name)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Product image (if available)
+                    if let imageURLString = foodItem.imageURL, let imageURL = URL(string: imageURLString) {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .empty:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 80, height: 80)
+                                    .overlay(
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    )
+                            case let .success(image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            case .failure:
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 80, height: 80)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.secondary)
+                                    )
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
                 }
+                .padding(.horizontal)
                 .padding(.top)
 
                 VStack(spacing: 8) {
-                    Text("\(Double(calculatedPortion), specifier: "%.0f") \(unit)")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.orange)
-
-                    if foodItem.standardServingSize != nil {
-                        Text("\(sliderMultiplier, specifier: "%.2f")× serving")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                    switch foodItem.nutrition {
+                    case .per100:
+                        Text("\(Double(calculatedPortion), specifier: "%.0f") \(unit)")
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(.orange)
+                    case .perServing:
+                        Text(formattedServingMultiplier(calculatedPortion))
+                            .font(.system(size: 32, weight: .bold))
+                            .foregroundColor(.orange)
                     }
                 }
 
                 VStack(spacing: 12) {
-                    Slider(value: $sliderMultiplier, in: 0.25 ... 5.0, step: 0.25)
+                    Slider(value: $sliderMultiplier, in: sliderRange, step: sliderStep)
                         .tint(.orange)
 
                     HStack {
-                        Text("0.25x")
+                        Text(sliderMinLabel)
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("5x")
+                        Text(sliderMaxLabel)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -2623,21 +3263,41 @@ extension FoodItemRow {
                     // Display nutritional information if available
                     if hasNutritionInfo {
                         HStack(spacing: 8) {
-                            if let carbs = foodItem.carbsInPortion(portion: calculatedPortion), carbs > 0 {
-                                NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            if let protein = foodItem.proteinInPortion(portion: calculatedPortion), protein > 0 {
-                                NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            if let fat = foodItem.fatInPortion(portion: calculatedPortion), fat > 0 {
-                                NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
-                                    .frame(maxWidth: .infinity)
-                            }
-                            if let calories = foodItem.caloriesInPortion(portion: calculatedPortion), calories > 0 {
-                                NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
-                                    .frame(maxWidth: .infinity)
+                            switch foodItem.nutrition {
+                            case .per100:
+                                if let carbs = foodItem.carbsInPortion(portion: calculatedPortion), carbs > 0 {
+                                    NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let protein = foodItem.proteinInPortion(portion: calculatedPortion), protein > 0 {
+                                    NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let fat = foodItem.fatInPortion(portion: calculatedPortion), fat > 0 {
+                                    NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let calories = foodItem.caloriesInPortion(portion: calculatedPortion), calories > 0 {
+                                    NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                            case .perServing:
+                                if let carbs = foodItem.carbsInServings(multiplier: calculatedPortion), carbs > 0 {
+                                    NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let protein = foodItem.proteinInServings(multiplier: calculatedPortion), protein > 0 {
+                                    NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let fat = foodItem.fatInServings(multiplier: calculatedPortion), fat > 0 {
+                                    NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if let calories = foodItem.caloriesInServings(multiplier: calculatedPortion), calories > 0 {
+                                    NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
+                                        .frame(maxWidth: .infinity)
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -2646,19 +3306,36 @@ extension FoodItemRow {
                 }
                 .padding(.horizontal)
 
-                // Show reset button if original portion size is available
-                if let original = foodItem.portionEstimateSize {
-                    Button(action: resetSliderToOriginal) {
-                        HStack {
-                            Text("Reset to \(Double(original), specifier: "%.0f") \(unit)")
+                // Show reset button if original portion size or servings multiplier is available
+                switch foodItem.nutrition {
+                case .per100:
+                    if let original = foodItem.portionSize {
+                        Button(action: resetSliderToOriginal) {
+                            HStack {
+                                Text("Reset to \(Double(original), specifier: "%.0f") \(unit)")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(10)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
-                        .cornerRadius(10)
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
+                case .perServing:
+                    if let original = foodItem.servingsMultiplier {
+                        Button(action: resetSliderToOriginal) {
+                            HStack {
+                                Text("Reset to \(Double(original), specifier: "%.2f") \(original == 1 ? "serving" : "servings")")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.blue.opacity(0.1))
+                            .foregroundColor(.blue)
+                            .cornerRadius(10)
+                        }
+                        .padding(.horizontal)
+                    }
                 }
 
                 HStack(spacing: 12) {
@@ -2686,131 +3363,375 @@ extension FoodItemRow {
         }
 
         private var hasNutritionInfo: Bool {
-            foodItem.caloriesPer100 != nil || foodItem.carbsPer100 != nil || foodItem.proteinPer100 != nil || foodItem
-                .fatPer100 != nil
+            switch foodItem.nutrition {
+            case let .per100(values):
+                return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+            case let .perServing(values):
+                return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+            }
         }
     }
 }
 
-// MARK: - Text Search Results Sheet
-
-struct TextSearchResultsSheet: View {
-    let searchResult: FoodAnalysisResult
-    let onFoodItemSelected: (AnalysedFoodItem, Date?) -> Void
+struct FoodItemsSelectorView: View {
+    let searchResult: FoodItemGroup
+    let onFoodItemSelected: (FoodItemDetailed) -> Void
+    let onFoodItemRemoved: (FoodItemDetailed) -> Void
+    let isItemAdded: (FoodItemDetailed) -> Bool
     let onDismiss: () -> Void
+    var useTransparentBackground: Bool = false
+    var filterText: String = ""
+    var onPersist: ((FoodItemDetailed) -> Void)? = nil
+    var onDelete: ((FoodItemDetailed) -> Void)? = nil
 
-    @State private var selectedTime: Date?
-    @State private var showTimePicker = false
+    private var displayTitle: String {
+        if searchResult.source == .database {
+            return "Saved Foods"
+        } else if let query = searchResult.textQuery {
+            return query
+        } else {
+            return "Search Results"
+        }
+    }
 
-    @Environment(\.dismiss) var dismiss
+    private var filteredFoodItems: [FoodItemDetailed] {
+        let trimmedFilter = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-    // Helper function to format time
-    private func timeString(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        guard !trimmedFilter.isEmpty else {
+            return searchResult.foodItemsDetailed
+        }
+
+        return searchResult.foodItemsDetailed.filter { foodItem in
+            foodItem.name.lowercased().contains(trimmedFilter)
+        }
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Header card with search info
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
+        Group {
+            if filteredFoodItems.isEmpty && !filterText.isEmpty {
+                // Show empty state in ScrollView when no results
+                ScrollView {
+                    VStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16))
-                            .foregroundColor(.blue)
-
-                        if let query = searchResult.textQuery {
-                            Text("Results for \"\(query)\"")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        } else {
-                            Text("Search Results")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer()
-
-                        // Time picker button
-                        Button(action: {
-                            showTimePicker = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "clock")
-                                    .font(.system(size: 14, weight: .medium))
-                                Text(selectedTime == nil ? "now" : timeString(for: selectedTime!))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
+                            .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Color(.systemGray5))
-                            )
-                        }
-                        .buttonStyle(.plain)
+                            .padding(.top, 40)
+
+                        Text("No foods found")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                     }
-
-                    Text(
-                        "\(searchResult.foodItemsDetailed.count) \(searchResult.foodItemsDetailed.count == 1 ? "result" : "results") found"
-                    )
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    Color.blue.opacity(0.08)
-                )
-
-                // Results list
+                .scrollDismissesKeyboard(.immediately)
+            } else {
+                // Use List for swipe actions support
                 List {
-                    ForEach(searchResult.foodItemsDetailed) { foodItem in
-                        let index = searchResult.foodItemsDetailed.firstIndex(where: { $0.id == foodItem.id }) ?? 0
+                    ForEach(Array(filteredFoodItems.enumerated()), id: \.element.id) { index, foodItem in
                         if foodItem.name.isNotEmpty {
-                            FoodItemRow(
+                            FoodItemsSelectorItemRow(
                                 foodItem: foodItem,
-                                portionSize: foodItem.portionEstimateSize ?? foodItem.standardServingSize ?? 100,
-                                onPortionChange: nil,
-                                onDelete: nil,
-                                onSelect: {
-                                    onFoodItemSelected(foodItem, selectedTime)
+                                portionSize: {
+                                    // For per-serving nutrition, use servingsMultiplier (default 1.0)
+                                    // For per-100 nutrition, use portionSize in grams (default to standardServingSize or 100)
+                                    switch foodItem.nutrition {
+                                    case .perServing:
+                                        return foodItem.servingsMultiplier ?? 1.0
+                                    case .per100:
+                                        return foodItem.portionSize ?? foodItem.standardServingSize ?? 100
+                                    }
+                                }(),
+                                onAdd: {
+                                    onFoodItemSelected(foodItem)
                                 },
+                                onRemove: {
+                                    onFoodItemRemoved(foodItem)
+                                },
+                                isAdded: isItemAdded(foodItem),
                                 isFirst: index == 0,
-                                isLast: index == searchResult.foodItemsDetailed.count - 1,
-                                showSelectButton: true
+                                isLast: index == filteredFoodItems.count - 1,
+                                useTransparentBackground: useTransparentBackground,
+                                onPersist: onPersist,
+                                onDelete: onDelete
                             )
                             .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                            .listRowBackground(Color(.systemGray6))
-                            .listRowSeparator(index == searchResult.foodItemsDetailed.count - 1 ? .hidden : .visible)
+                            .listRowSeparator(index == filteredFoodItems.count - 1 ? .hidden : .visible)
+                            .listRowBackground(useTransparentBackground ? Color.clear : Color(.systemGray6))
                         }
                     }
                 }
                 .listStyle(.plain)
-                .background(Color(.systemGroupedBackground))
                 .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.immediately)
             }
-            .navigationTitle("Select Food")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cancel") {
-                        onDismiss()
+        }
+    }
+}
+
+private struct FoodItemsSelectorItemRow: View {
+    let foodItem: FoodItemDetailed
+    let portionSize: Decimal
+    let onAdd: () -> Void
+    let onRemove: () -> Void
+    let isAdded: Bool
+    let isFirst: Bool
+    let isLast: Bool
+    let useTransparentBackground: Bool
+    var onPersist: ((FoodItemDetailed) -> Void)? = nil
+    var onDelete: ((FoodItemDetailed) -> Void)? = nil
+
+    @State private var showItemInfo = false
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirmation = false
+
+    private var hasNutritionInfo: Bool {
+        switch foodItem.nutrition {
+        case let .per100(values):
+            return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+        case let .perServing(values):
+            return values.calories != nil || values.carbs != nil || values.protein != nil || values.fat != nil
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Main Row Content
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Top row: Name + Confidence
+                    HStack(spacing: 8) {
+                        Text(foodItem.name)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        // Confidence badge (if AI source)
+                        if foodItem.source.isAI, let confidence = foodItem.confidence {
+                            ConfidenceBadge(level: confidence)
+                        }
+                    }
+
+                    // Middle row: Portion badge + serving multiplier
+                    HStack(spacing: 8) {
+                        PortionSizeBadge(
+                            value: portionSize,
+                            color: .orange,
+                            icon: "scalemass.fill",
+                            foodItem: foodItem
+                        )
+
+                        // Only show serving multiplier for per100 items
+                        if case .per100 = foodItem.nutrition {
+                            if let servingSize = foodItem.standardServingSize {
+                                Text("\(Double(portionSize / servingSize), specifier: "%.1f")× serving")
+                                    .font(.caption)
+                                    .foregroundColor(.primary)
+                                    .opacity(0.7)
+                            }
+                        }
+                    }
+                }
+
+                // Product image thumbnail (if available) - on the right
+                FoodItemThumbnail(imageURL: foodItem.imageURL)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                showItemInfo = true
+            }
+            .sheet(isPresented: $showItemInfo) {
+                FoodItemInfoPopup(foodItem: foodItem, portionSize: portionSize)
+                    .presentationDetents([.height(preferredItemInfoHeight(for: foodItem)), .large])
+                    .presentationDragIndicator(.visible)
+            }
+
+            // Compact nutrition info
+            HStack(spacing: 6) {
+                switch foodItem.nutrition {
+                case .per100:
+                    if let carbs = foodItem.carbsInPortion(portion: portionSize) {
+                        NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
+                    }
+                    if let protein = foodItem.proteinInPortion(portion: portionSize), protein > 0 {
+                        NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
+                    }
+                    if let fat = foodItem.fatInPortion(portion: portionSize), fat > 0 {
+                        NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
+                    }
+                    if let calories = foodItem.caloriesInPortion(portion: portionSize), calories > 0 {
+                        NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
+                    }
+                case .perServing:
+                    if let carbs = foodItem.carbsInServings(multiplier: portionSize) {
+                        NutritionBadge(value: carbs, label: "carbs", color: NutritionBadgeConfig.carbsColor)
+                    }
+                    if let protein = foodItem.proteinInServings(multiplier: portionSize), protein > 0 {
+                        NutritionBadge(value: protein, label: "protein", color: NutritionBadgeConfig.proteinColor)
+                    }
+                    if let fat = foodItem.fatInServings(multiplier: portionSize), fat > 0 {
+                        NutritionBadge(value: fat, label: "fat", color: NutritionBadgeConfig.fatColor)
+                    }
+                    if let calories = foodItem.caloriesInServings(multiplier: portionSize), calories > 0 {
+                        NutritionBadge(value: calories, unit: "kcal", color: NutritionBadgeConfig.caloriesColor)
                     }
                 }
             }
-            .sheet(isPresented: $showTimePicker) {
-                TimePickerSheet(selectedTime: $selectedTime, isPresented: $showTimePicker)
-                    .presentationDetents([.height(280)])
-                    .presentationDragIndicator(.visible)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            if isAdded {
+                Button(action: onRemove) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "minus.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Remove from meal")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(.systemGray5))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            } else {
+                Button(action: onAdd) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Add to Meal")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.accentColor)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
             }
+        }
+        .padding(.top, isFirst ? 8 : 0)
+        .padding(.bottom, isLast ? 8 : 0)
+        .background(useTransparentBackground ? Color.clear : Color(.systemGray6))
+        .when(onPersist != nil) { view in
+            view.swipeActions(edge: .leading, allowsFullSwipe: true) {
+                Button {
+                    showEditSheet = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .tint(.orange)
+            }
+        }
+        .when(onDelete != nil) { view in
+            view.swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .tint(.red)
+            }
+        }
+        .confirmationDialog(
+            "Delete Saved Food",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Permanently", role: .destructive) {
+                onDelete?(foodItem)
+            }
+            Button("Cancel", role: .cancel) {
+                showDeleteConfirmation = false
+            }
+        } message: {
+            Text(
+                "Are you sure you want to permanently delete \"\(foodItem.name)\" from your saved foods? This action cannot be undone."
+            )
+        }
+        .sheet(isPresented: $showEditSheet) {
+            FoodItemEditorSheet(
+                existingItem: foodItem,
+                title: "Edit Saved Food",
+                allowServingMultiplierEdit: false, // Don't allow editing multiplier for saved foods
+                onSave: { editedItem in
+                    onPersist?(editedItem)
+                    showEditSheet = false
+                },
+                onCancel: {
+                    showEditSheet = false
+                }
+            )
+            .presentationDetents([.height(600), .large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func preferredItemInfoHeight(for item: FoodItemDetailed) -> CGFloat {
+        var base: CGFloat = 480
+        if let notes = item.assessmentNotes, !notes.isEmpty { base += 40 }
+        if let prep = item.preparationMethod, !prep.isEmpty { base += 30 }
+        if let cues = item.visualCues, !cues.isEmpty { base += 30 }
+        if (item.standardServing != nil && !item.standardServing!.isEmpty) ||
+            item.standardServingSize != nil { base += 40 }
+        return min(max(base, 460), 680)
+    }
+
+    private struct PortionSizeBadge: View {
+        let value: Decimal
+        let color: Color
+        let icon: String
+        let foodItem: FoodItemDetailed
+
+        @Environment(\.colorScheme) private var colorScheme
+
+        var body: some View {
+            HStack(spacing: 4) {
+                if !icon.isEmpty {
+                    Image(systemName: icon)
+                        .font(.system(size: 10))
+                        .opacity(0.3)
+                }
+                HStack(spacing: 2) {
+                    switch foodItem.nutrition {
+                    case .per100:
+                        Text("\(Double(value), specifier: "%.0f")")
+                            .font(.system(size: 15, weight: .bold))
+                        Text(NSLocalizedString((foodItem.units ?? .grams).localizedAbbreviation, comment: ""))
+                            .font(.system(size: 13, weight: .semibold))
+                            .opacity(0.4)
+                    case .perServing:
+                        Text("\(Double(value), specifier: "%.1f")")
+                            .font(.system(size: 15, weight: .bold))
+                        Text(value == 1 ? "serving" : "servings")
+                            .font(.system(size: 13, weight: .semibold))
+                            .opacity(0.4)
+                    }
+                }
+            }
+            .foregroundColor(.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color(.systemGray4))
+            .cornerRadius(8)
         }
     }
 }

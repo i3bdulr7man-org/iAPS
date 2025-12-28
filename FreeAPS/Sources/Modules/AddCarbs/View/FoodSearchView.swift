@@ -4,22 +4,27 @@ import SwiftUI
 
 struct FoodSearchView: View {
     @ObservedObject var state: FoodSearchStateModel
-    var onSelect: (AIFoodItem, UIImage?, Date?) -> Void
-//    let addButtonLabelKey: LocalizedStringKey
-    let addAllButtonLabelKey: LocalizedStringKey
+    let onContinue: ([FoodItemDetailed], UIImage?, Date?) -> Void
+    let onHypoTreatment: (([FoodItemDetailed], UIImage?, Date?) -> Void)?
+    let onPersist: (FoodItemDetailed) -> Void
+    let onDelete: (FoodItemDetailed) -> Void
+    let continueButtonLabelKey: LocalizedStringKey
+    let hypoTreatmentButtonLabelKey: LocalizedStringKey
 
     var body: some View {
         VStack(spacing: 0) {
             SearchResultsView(
                 state: state,
-                onFoodItemSelected: { foodItem, selectedTime in
-                    onSelect(foodItem, state.aiAnalysisRequest?.image, selectedTime)
+                onContinue: { totalMeal, selectedTime in
+                    onContinue(totalMeal, state.aiAnalysisRequest?.image, selectedTime)
                 },
-                onCompleteMealSelected: { totalMeal, selectedTime in
-                    onSelect(totalMeal, state.aiAnalysisRequest?.image, selectedTime)
-                },
-//                addButtonLabelKey: addButtonLabelKey,
-                addAllButtonLabelKey: addAllButtonLabelKey
+                onHypoTreatment: onHypoTreatment != nil ? { totalMeal, selectedTime in
+                    onHypoTreatment?(totalMeal, state.aiAnalysisRequest?.image, selectedTime)
+                } : nil,
+                onPersist: onPersist,
+                onDelete: onDelete,
+                continueButtonLabelKey: continueButtonLabelKey,
+                hypoTreatmentButtonLabelKey: hypoTreatmentButtonLabelKey
             )
         }
         .fullScreenCover(item: state.foodSearchRouteBinding) { route in
@@ -43,23 +48,10 @@ struct FoodSearchView: View {
                 AIProgressView(
                     state: state,
                     onCancel: {
-                        print("progress view - cancelled")
                         state.cancelSearchTask()
                     }
                 )
             }
-        }
-        .sheet(item: $state.latestTextSearch) { searchResult in
-            TextSearchResultsSheet(
-                searchResult: searchResult,
-                onFoodItemSelected: { selectedItem, _ in
-                    state.addItem(selectedItem)
-                    state.latestTextSearch = nil
-                },
-                onDismiss: {
-                    state.latestTextSearch = nil
-                }
-            )
         }
     }
 
@@ -70,31 +62,42 @@ struct FoodSearchView: View {
         @FocusState private var isTextFieldFocused: Bool
 
         var body: some View {
-            HStack(spacing: 10) {
+            VStack(spacing: 10) {
+                // First Row - Search Text Field
                 HStack(spacing: 10) {
                     Image(
-                        systemName: state.isBarcode ? "barcode" :
-                            UserDefaults.standard.textSearchProvider.isAI ? "text.bubble" : "magnifyingglass"
+                        systemName: state.showSavedFoods ? FoodItemSource.database.icon : (
+                            state.isBarcode ? FoodItemSource.barcode.icon :
+                                UserDefaults.standard.textSearchProvider.isAI ? FoodItemSource.aiText.icon : FoodItemSource.search
+                                .icon
+                        )
                     )
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.secondary)
 
-                    ZStack(alignment: .trailing) {
-                        TextField("Search foods...", text: $state.foodSearchText)
-                            .font(.body)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .submitLabel(.search)
-                            .focused($isTextFieldFocused)
-                            .onSubmit {
-                                state.searchByText(query: state.foodSearchText)
-                                state.showingFoodSearch = true
-                            }
-                            .onChange(of: isTextFieldFocused) { _, newValue in
-                                if newValue {
-                                    state.showingFoodSearch = true
-                                }
-                            }
+                    TextField(
+                        state
+                            .showSavedFoods ? "Search saved foods..." :
+                            (UserDefaults.standard.textSearchProvider.isAI ? "Ask AI..." : "Search foods..."),
+                        text: $state.foodSearchText
+                    )
+                    .font(.body)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .submitLabel(.search)
+                    .focused($isTextFieldFocused)
+                    .onSubmit {
+                        state.searchByText(query: state.foodSearchText)
+                        state.showingFoodSearch = true
+                    }
+                    .onChange(of: isTextFieldFocused) { _, newValue in
+                        if newValue {
+                            state.showingFoodSearch = true
+                        }
+                    }
+                    .onChange(of: state.foodSearchText) { _, newValue in
+                        // Update the saved foods filter text
+                        state.filterText = newValue
                     }
 
                     // Clear button
@@ -116,56 +119,126 @@ struct FoodSearchView: View {
                         .fill(Color(.systemGray5))
                 )
 
-                // Barcode Scanner Button
-                Button {
-                    state.showingFoodSearch = true
-                    state.foodSearchRoute = .barcodeScanner
-                } label: {
-                    Image(systemName: "barcode.viewfinder")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.blue)
-                        .frame(width: 46, height: 46)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.blue.opacity(0.12))
-                        )
+                if !state.showSavedFoods, state.latestMultipleSelectSearch == nil {
+                    HStack(spacing: 10) {
+                        if state.showingFoodSearch {
+                            Button {
+                                state.showingFoodSearch = false
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text("Back")
+                                        .font(.system(size: 15, weight: .regular))
+                                }
+                                .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 10) {
+                            if state.showingFoodSearch {
+                                Button {
+                                    state.showManualEntry = true
+                                    state.showingFoodSearch = true
+                                } label: {
+                                    Image(systemName: FoodItemSource.manual.icon)
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(.green)
+                                        .frame(width: 46, height: 46)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(Color.green.opacity(0.12))
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+
+                            if state.savedFoods?.foodItemsDetailed.count ?? 0 > 0 {
+                                Button {
+                                    state.showSavedFoods = true
+                                    state.showingFoodSearch = true
+                                } label: {
+                                    Image(systemName: FoodItemSource.database.icon)
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(.orange)
+                                        .frame(width: 46, height: 46)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(Color.orange.opacity(0.12))
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+
+                            Button {
+                                state.showingFoodSearch = true
+                                state.foodSearchRoute = .barcodeScanner
+                            } label: {
+                                Image(systemName: FoodItemSource.barcode.icon)
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(.blue)
+                                    .frame(width: 46, height: 46)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(Color.blue.opacity(0.12))
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.purple)
+                                .frame(width: 46, height: 46)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.purple.opacity(0.12))
+                                )
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    state.foodSearchRoute = .camera
+                                    state.showingFoodSearch = true
+                                }
+                                .contextMenu {
+                                    Button {
+                                        state.foodSearchRoute = .camera
+                                        state.showingFoodSearch = true
+                                    } label: {
+                                        Label("Take Photo", systemImage: "camera")
+                                    }
+
+                                    Button {
+                                        showPhotoPicker = true
+                                        state.showingFoodSearch = true
+                                    } label: {
+                                        Label("Choose from Library", systemImage: "photo.on.rectangle")
+                                    }
+                                }
+                                .photosPicker(
+                                    isPresented: $showPhotoPicker,
+                                    selection: $selectedPhotoItem,
+                                    matching: .images
+                                )
+                        }
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
-
-                // Camera Button with Context Menu
-                Image(systemName: "camera.fill")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.purple)
-                    .frame(width: 46, height: 46)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.purple.opacity(0.12))
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        state.foodSearchRoute = .camera
-                        state.showingFoodSearch = true
-                    }
-                    .contextMenu {
+            }
+            .toolbar {
+                // Only show toolbar when search field is focused
+                if isTextFieldFocused {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
                         Button {
-                            state.foodSearchRoute = .camera
-                            state.showingFoodSearch = true
+                            isTextFieldFocused = false
                         } label: {
-                            Label("Take Photo", systemImage: "camera")
-                        }
-
-                        Button {
-                            showPhotoPicker = true
-                            state.showingFoodSearch = true
-                        } label: {
-                            Label("Choose from Library", systemImage: "photo.on.rectangle")
+                            Image(systemName: "keyboard.chevron.compact.down")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.blue)
                         }
                     }
-                    .photosPicker(
-                        isPresented: $showPhotoPicker,
-                        selection: $selectedPhotoItem,
-                        matching: .images
-                    )
+                }
             }
             .onChange(of: selectedPhotoItem) { _, newItem in
                 guard let selectedPhotoItem = newItem else { return }

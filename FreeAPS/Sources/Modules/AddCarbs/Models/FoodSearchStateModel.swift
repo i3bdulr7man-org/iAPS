@@ -17,16 +17,21 @@ final class FoodSearchStateModel: ObservableObject {
 
     @Published var foodSearchRoute: FoodSearchRoute? = nil
 
-    @Published var latestTextSearch: FoodAnalysisResult? = nil
-    @Published var searchResults: [FoodAnalysisResult] = []
     @Published var aiAnalysisRequest: AnalysisRequest?
 
+    @Published var latestMultipleSelectSearch: FoodItemGroup? = nil
+    @Published var savedFoods: FoodItemGroup? = nil
     @Published var latestSearchError: String? = nil
     @Published var latestSearchIcon: String? = nil
+
+    @Published var showSavedFoods = false
     @Published var isLoading = false
     @Published var mealView = false
+    @Published var filterText = ""
+    @Published var showManualEntry = false
+    @Published var showNewSavedFoodEntry = false
 
-    var resultsView = SearchResultsState.empty
+    var searchResultsState = SearchResultsState.empty
 
     // analysis progress
 
@@ -40,14 +45,6 @@ final class FoodSearchStateModel: ObservableObject {
     @Published var analysisModel: String?
 
     @Published var searchTask: Task<Void, Never>? = nil
-
-    var visibleSections: [FoodAnalysisResult] {
-        searchResults.filter({ !resultsView.isSectionDeleted($0.id) })
-    }
-
-    var allFoodItems: [AnalysedFoodItem] {
-        visibleSections.flatMap(\.foodItemsDetailed)
-    }
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -63,7 +60,7 @@ final class FoodSearchStateModel: ObservableObject {
     }
 
     init() {
-        resultsView.objectWillChange.sink { [weak self] _ in
+        searchResultsState.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
         .store(in: &cancellables)
@@ -132,13 +129,14 @@ final class FoodSearchStateModel: ObservableObject {
                     barcode,
                     telemetryCallback: nil
                 )
-                Task { @MainActor in
-                    self.isLoading = false
+
+                self.isLoading = false
+                if !Task.isCancelled {
                     if let first = result.foodItemsDetailed.first {
                         if result.foodItemsDetailed.count == 1 {
-                            addItem(first)
+                            addItem(first, group: result)
                         } else {
-                            self.latestTextSearch = result
+                            self.latestMultipleSelectSearch = result
                         }
                     } else {
                         self.latestSearchError = NSLocalizedString(
@@ -169,13 +167,13 @@ final class FoodSearchStateModel: ObservableObject {
                     telemetryCallback: nil
                 )
 
+                self.isLoading = false
                 if !Task.isCancelled {
-                    self.isLoading = false
                     if let first = result.foodItemsDetailed.first {
                         if result.foodItemsDetailed.count == 1 {
-                            addItem(first)
+                            addItem(first, group: result)
                         } else {
-                            self.latestTextSearch = result
+                            self.latestMultipleSelectSearch = result
                         }
                     } else {
                         self.latestSearchError = NSLocalizedString(
@@ -288,12 +286,15 @@ final class FoodSearchStateModel: ObservableObject {
     }
 
     private func onFoodAnalyzed(
-        _ analysisResult: FoodAnalysisResult,
+        _ analysisResult: FoodItemGroup,
         _ analysisRequest: AnalysisRequest
     ) {
-        searchResults = [analysisResult] + searchResults
+        if analysisResult.source == .aiMenu {
+            latestMultipleSelectSearch = analysisResult
+        } else {
+            searchResultsState.searchResults = [analysisResult] + searchResultsState.searchResults
+        }
         aiAnalysisRequest = analysisRequest
-
         // TODO: delay before hiding the progress screen, do we want it?
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.foodSearchRoute = nil
@@ -316,9 +317,13 @@ final class FoodSearchStateModel: ObservableObject {
         print("cancelling search task")
         searchTask?.cancel()
         searchTask = nil
+        latestSearchError = nil
+        latestSearchIcon = nil
+        latestMultipleSelectSearch = nil
         telemetryLogs = []
         analysisStart = nil
         analysisEnd = nil
+        isLoading = false
         isAnalyzing = false
         aiAnalysisRequest = nil
         analysisError = nil
@@ -331,43 +336,90 @@ final class FoodSearchStateModel: ObservableObject {
         foodSearchRoute = nil
     }
 
-    @MainActor func addItem(_ item: AnalysedFoodItem) {
-        // Early return if source is missing; although caller asserts it won't be nil, guard defensively
-        guard let source = item.source else { return }
-
-        // Find an existing result with the same source as the item's source
-        if let existingIndex = searchResults.firstIndex(where: { $0.source == source }) {
-            let existing = searchResults.remove(at: existingIndex)
-            // Build a new items array by prepending the new item
-            let newItems = [item] + existing.foodItemsDetailed
-            // Rebuild a new FoodAnalysisResult preserving all existing fields, only replacing items
-            let updated = FoodAnalysisResult(
-                imageType: existing.imageType,
-                foodItemsDetailed: newItems,
-                briefDescription: existing.briefDescription,
-                overallDescription: existing.overallDescription,
-                diabetesConsiderations: existing.diabetesConsiderations,
-                notes: existing.notes,
-                source: existing.source,
-                barcode: existing.barcode,
-                textQuery: existing.textQuery
-            )
-            // Put this updated result at the beginning of the list of results
-            searchResults.insert(updated, at: 0)
-        } else {
-            // Create a brand new result for this source; other fields are nil by default
-            let newResult = FoodAnalysisResult(
-                imageType: nil,
-                foodItemsDetailed: [item],
-                briefDescription: nil,
-                overallDescription: nil,
-                diabetesConsiderations: nil,
-                notes: nil,
-                source: source,
-                barcode: nil,
-                textQuery: nil
-            )
-            searchResults.insert(newResult, at: 0)
+    @MainActor func addItem(_ item: FoodItemDetailed, group: FoodItemGroup?) {
+        if searchResultsState.isDeleted(item) {
+            searchResultsState.undeleteItem(item)
+            return
         }
+
+        let targetGroupIndex: Int?
+        var targetGroup: FoodItemGroup
+        if let group = group, group.source.isAI == true {
+            // Find existing group with same ID (for AI sources)
+            targetGroupIndex = searchResultsState.searchResults.firstIndex { $0.id == group.id }
+            if let targetGroupIndex {
+                targetGroup = searchResultsState.searchResults[targetGroupIndex].copyWithItemPrepended(item)
+            } else {
+                targetGroup = group.copyWithItems([item])
+            }
+        } else {
+            // Find existing group with same source (nil --> manual food entry)
+            let source = group?.source ?? .manual
+            targetGroupIndex = searchResultsState.searchResults.firstIndex { $0.source == source }
+            if let targetGroupIndex {
+                targetGroup = searchResultsState.searchResults[targetGroupIndex].copyWithItemPrepended(item)
+            } else {
+                targetGroup = FoodItemGroup(
+                    foodItemsDetailed: [item],
+                    source: source,
+                )
+            }
+        }
+
+        if let index = targetGroupIndex {
+            searchResultsState.searchResults[index] = targetGroup
+            // Move to front if not already there
+            if index != 0 {
+                searchResultsState.searchResults.remove(at: index)
+                searchResultsState.searchResults.insert(targetGroup, at: 0)
+            }
+        } else {
+            searchResultsState.searchResults.insert(targetGroup, at: 0)
+        }
+    }
+
+    /// Updates an existing food item in the search results (typically used for manual entries)
+    /// The edited item must have the same ID as the original item
+    @MainActor func updateItem(_ editedItem: FoodItemDetailed) {
+        // Find which group contains this item
+        guard let groupIndex = searchResultsState.searchResults.firstIndex(where: { group in
+            group.foodItemsDetailed.contains(where: { $0.id == editedItem.id })
+        }) else {
+            return
+        }
+
+        var updatedGroup = searchResultsState.searchResults[groupIndex]
+
+        // Replace the food item in the group
+        guard let itemIndex = updatedGroup.foodItemsDetailed.firstIndex(where: { $0.id == editedItem.id }) else {
+            return
+        }
+
+        var updatedItems = updatedGroup.foodItemsDetailed
+        updatedItems[itemIndex] = editedItem
+
+        // Create updated group with the same metadata
+        updatedGroup = FoodItemGroup(
+            foodItemsDetailed: updatedItems,
+            briefDescription: updatedGroup.briefDescription,
+            overallDescription: updatedGroup.overallDescription,
+            diabetesConsiderations: updatedGroup.diabetesConsiderations,
+            source: updatedGroup.source,
+            barcode: updatedGroup.barcode,
+            textQuery: updatedGroup.textQuery
+        )
+
+        // Update the group in search results
+        searchResultsState.searchResults[groupIndex] = updatedGroup
+
+        // Also update the portion in editedItems to match the edited item's current portion
+        let newPortion: Decimal
+        switch editedItem.nutrition {
+        case .per100:
+            newPortion = editedItem.portionSize ?? 100
+        case .perServing:
+            newPortion = editedItem.servingsMultiplier ?? 1
+        }
+        searchResultsState.updatePortion(for: editedItem, to: newPortion)
     }
 }
