@@ -361,6 +361,7 @@ extension AddCarbs {
                         units: mealUnits,
                         glycemicIndex: preset.glycemicIndex as Decimal?,
                         imageURL: preset.imageURL,
+                        standardName: preset.standardName,
                         source: .database
                     )
                 } else {
@@ -374,6 +375,7 @@ extension AddCarbs {
                         units: mealUnits,
                         glycemicIndex: preset.glycemicIndex as Decimal?,
                         imageURL: preset.imageURL,
+                        standardName: preset.standardName,
                         source: .database
                     )
                 }
@@ -385,7 +387,6 @@ extension AddCarbs {
             if noId.isNotEmpty {
                 for preset in noId {
                     preset.foodID = UUID()
-                    print("adding id to preset: \(preset.dish) - \(preset.foodID)")
                 }
                 do {
                     try moc.save()
@@ -445,6 +446,8 @@ extension AddCarbs {
             preset.standardServingSize = food.standardServingSize.map { NSDecimalNumber(decimal: $0) }
             preset.imageURL = food.imageURL
             preset.mealUnits = (food.units ?? .grams).rawValue
+
+            preset.standardName = food.standardName
 
             preset.dish = food.name
 

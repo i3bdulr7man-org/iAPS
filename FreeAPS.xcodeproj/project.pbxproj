@@ -89,7 +89,6 @@
 		19C3C7312E97AE520000BE4D /* BarcodeScannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C7282E97AE520000BE4D /* BarcodeScannerService.swift */; };
 		19C3C7342E97AE520000BE4D /* UserDefaults+Loop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C7252E97AE520000BE4D /* UserDefaults+Loop.swift */; };
 		19C3C7352E97AE520000BE4D /* AIFoodAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C7272E97AE520000BE4D /* AIFoodAnalysis.swift */; };
-		19C3C73A2E97AE520000BE4D /* OpenFoodFactsProducts+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C7202E97AE520000BE4D /* OpenFoodFactsProducts+Extensions.swift */; };
 		19C3C73B2E97AE520000BE4D /* OpenFoodFactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C72B2E97AE520000BE4D /* OpenFoodFactsService.swift */; };
 		19C3C73D2E97AE520000BE4D /* OpenFoodFactsSearchResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C7242E97AE520000BE4D /* OpenFoodFactsSearchResponse.swift */; };
 		19C3C7442E97AE7B0000BE4D /* ModernCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C3C73E2E97AE7B0000BE4D /* ModernCameraView.swift */; };
@@ -451,17 +450,20 @@
 		F226D4F42E5E0B1400F8F43C /* LoopKitUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F226D4F02E5E0B1400F8F43C /* LoopKitUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		F227E1FD2E76515C0076BADA /* NotificationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F227E1FC2E76515C0076BADA /* NotificationExtensions.swift */; };
 		F24EB2962EE5B8F300C981A2 /* AIFoodAnalysisError.swift in Sources */ = {isa = PBXBuildFile; fileRef = F24EB2952EE5B8F300C981A2 /* AIFoodAnalysisError.swift */; };
+		F25284692F01C7BC0084D094 /* ImageSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25284682F01C7BC0084D094 /* ImageSelectorView.swift */; };
+		F252846D2F01C81F0084D094 /* FoodImageStorageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F252846C2F01C81F0084D094 /* FoodImageStorageManager.swift */; };
 		F270F68D2BAE374C00F6D8DD /* FontTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = F270F68C2BAE374C00F6D8DD /* FontTracking.swift */; };
 		F273F9602DE73ABE00BF0FFC /* IOBTick0.swift in Sources */ = {isa = PBXBuildFile; fileRef = F273F95F2DE73ABE00BF0FFC /* IOBTick0.swift */; };
 		F281B4A22ECF9087007185A9 /* LabelPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F281B4A12ECF9087007185A9 /* LabelPlacement.swift */; };
+		F29135522F02668F00BF9F95 /* OpenverseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29135512F02668F00BF9F95 /* OpenverseClient.swift */; };
 		F2941FA12E787F6500A9DD5D /* AppGroupCGM.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2941FA02E787F6500A9DD5D /* AppGroupCGM.swift */; };
 		F2941FA32E787F9F00A9DD5D /* AppGroupCGM+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2941FA22E787F9F00A9DD5D /* AppGroupCGM+UI.swift */; };
 		F2941FA52E787FCC00A9DD5D /* AppGroupCGMSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2941FA42E787FCC00A9DD5D /* AppGroupCGMSettingsViewController.swift */; };
 		F2941FA72E78806800A9DD5D /* AppGroupCGMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2941FA62E78806800A9DD5D /* AppGroupCGMSettingsView.swift */; };
 		F2941FA92E78823C00A9DD5D /* AppGroupCGMPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2941FA82E78823C00A9DD5D /* AppGroupCGMPlugin.swift */; };
-		F29E5E352EE4711D00D2CBC0 /* OpenAIFoodAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E342EE4711D00D2CBC0 /* OpenAIFoodAnalysisService.swift */; };
-		F29E5E372EE4724300D2CBC0 /* GoogleGeminiFoodAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E362EE4724300D2CBC0 /* GoogleGeminiFoodAnalysisService.swift */; };
-		F29E5E392EE4726A00D2CBC0 /* ClaudeFoodAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E382EE4726A00D2CBC0 /* ClaudeFoodAnalysisService.swift */; };
+		F29E5E352EE4711D00D2CBC0 /* OpenAIProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E342EE4711D00D2CBC0 /* OpenAIProtocol.swift */; };
+		F29E5E372EE4724300D2CBC0 /* GeminiProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E362EE4724300D2CBC0 /* GeminiProtocol.swift */; };
+		F29E5E392EE4726A00D2CBC0 /* ClaudeProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E382EE4726A00D2CBC0 /* ClaudeProtocol.swift */; };
 		F29E5E3B2EE473F500D2CBC0 /* USDAFoodDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29E5E3A2EE473F500D2CBC0 /* USDAFoodDataService.swift */; };
 		F29E5E532EE493A400D2CBC0 /* ai in Resources */ = {isa = PBXBuildFile; fileRef = F29E5E522EE4939A00D2CBC0 /* ai */; };
 		F29FC35D2E7F670000DC04FE /* CoreDataStorageGlucoseSaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29FC35C2E7F670000DC04FE /* CoreDataStorageGlucoseSaver.swift */; };
@@ -489,7 +491,6 @@
 		F2FA68842EE905F100476D7B /* AITypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA68832EE905F100476D7B /* AITypes.swift */; };
 		F2FA68862EE9061D00476D7B /* FoodAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA68852EE9061D00476D7B /* FoodAnalysisService.swift */; };
 		F2FA68882EE90B0F00476D7B /* AIPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA68872EE90B0F00476D7B /* AIPrompts.swift */; };
-		F2FA688A2EE90FD500476D7B /* ImageAnalysisCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA68892EE90FD500476D7B /* ImageAnalysisCache.swift */; };
 		F2FA688C2EE915A300476D7B /* ImageCompression.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA688B2EE915A300476D7B /* ImageCompression.swift */; };
 		F2FA688E2EE9180800476D7B /* NetworkQualityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA688D2EE9180800476D7B /* NetworkQualityMonitor.swift */; };
 		F2FA68902EEC538F00476D7B /* AIProviderClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FA688F2EEC538F00476D7B /* AIProviderClient.swift */; };
@@ -737,7 +738,6 @@
 		19C166682756EFBD00ED12E3 /* sk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sk; path = sk.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		19C166692756EFBD00ED12E3 /* sk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sk; path = sk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		19C3C7182E97AE520000BE4D /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
-		19C3C7202E97AE520000BE4D /* OpenFoodFactsProducts+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpenFoodFactsProducts+Extensions.swift"; sourceTree = "<group>"; };
 		19C3C7232E97AE520000BE4D /* FoodSearchStateModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodSearchStateModel.swift; sourceTree = "<group>"; };
 		19C3C7242E97AE520000BE4D /* OpenFoodFactsSearchResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFoodFactsSearchResponse.swift; sourceTree = "<group>"; };
 		19C3C7252E97AE520000BE4D /* UserDefaults+Loop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UserDefaults+Loop.swift"; sourceTree = "<group>"; };
@@ -1124,17 +1124,20 @@
 		F226D4FF2E5E111300F8F43C /* LibreTransmitterUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LibreTransmitterUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F227E1FC2E76515C0076BADA /* NotificationExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationExtensions.swift; sourceTree = "<group>"; };
 		F24EB2952EE5B8F300C981A2 /* AIFoodAnalysisError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIFoodAnalysisError.swift; sourceTree = "<group>"; };
+		F25284682F01C7BC0084D094 /* ImageSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSelectorView.swift; sourceTree = "<group>"; };
+		F252846C2F01C81F0084D094 /* FoodImageStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodImageStorageManager.swift; sourceTree = "<group>"; };
 		F270F68C2BAE374C00F6D8DD /* FontTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontTracking.swift; sourceTree = "<group>"; };
 		F273F95F2DE73ABE00BF0FFC /* IOBTick0.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBTick0.swift; sourceTree = "<group>"; };
 		F281B4A12ECF9087007185A9 /* LabelPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabelPlacement.swift; sourceTree = "<group>"; };
+		F29135512F02668F00BF9F95 /* OpenverseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenverseClient.swift; sourceTree = "<group>"; };
 		F2941FA02E787F6500A9DD5D /* AppGroupCGM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupCGM.swift; sourceTree = "<group>"; };
 		F2941FA22E787F9F00A9DD5D /* AppGroupCGM+UI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroupCGM+UI.swift"; sourceTree = "<group>"; };
 		F2941FA42E787FCC00A9DD5D /* AppGroupCGMSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupCGMSettingsViewController.swift; sourceTree = "<group>"; };
 		F2941FA62E78806800A9DD5D /* AppGroupCGMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupCGMSettingsView.swift; sourceTree = "<group>"; };
 		F2941FA82E78823C00A9DD5D /* AppGroupCGMPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupCGMPlugin.swift; sourceTree = "<group>"; };
-		F29E5E342EE4711D00D2CBC0 /* OpenAIFoodAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIFoodAnalysisService.swift; sourceTree = "<group>"; };
-		F29E5E362EE4724300D2CBC0 /* GoogleGeminiFoodAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleGeminiFoodAnalysisService.swift; sourceTree = "<group>"; };
-		F29E5E382EE4726A00D2CBC0 /* ClaudeFoodAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeFoodAnalysisService.swift; sourceTree = "<group>"; };
+		F29E5E342EE4711D00D2CBC0 /* OpenAIProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIProtocol.swift; sourceTree = "<group>"; };
+		F29E5E362EE4724300D2CBC0 /* GeminiProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiProtocol.swift; sourceTree = "<group>"; };
+		F29E5E382EE4726A00D2CBC0 /* ClaudeProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeProtocol.swift; sourceTree = "<group>"; };
 		F29E5E3A2EE473F500D2CBC0 /* USDAFoodDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = USDAFoodDataService.swift; sourceTree = "<group>"; };
 		F29E5E522EE4939A00D2CBC0 /* ai */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ai; sourceTree = "<group>"; };
 		F29FC35C2E7F670000DC04FE /* CoreDataStorageGlucoseSaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataStorageGlucoseSaver.swift; sourceTree = "<group>"; };
@@ -1162,7 +1165,6 @@
 		F2FA68832EE905F100476D7B /* AITypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITypes.swift; sourceTree = "<group>"; };
 		F2FA68852EE9061D00476D7B /* FoodAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodAnalysisService.swift; sourceTree = "<group>"; };
 		F2FA68872EE90B0F00476D7B /* AIPrompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIPrompts.swift; sourceTree = "<group>"; };
-		F2FA68892EE90FD500476D7B /* ImageAnalysisCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageAnalysisCache.swift; sourceTree = "<group>"; };
 		F2FA688B2EE915A300476D7B /* ImageCompression.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCompression.swift; sourceTree = "<group>"; };
 		F2FA688D2EE9180800476D7B /* NetworkQualityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkQualityMonitor.swift; sourceTree = "<group>"; };
 		F2FA688F2EEC538F00476D7B /* AIProviderClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderClient.swift; sourceTree = "<group>"; };
@@ -1460,18 +1462,9 @@
 			path = AutoISF;
 			sourceTree = "<group>";
 		};
-		19C3C7212E97AE520000BE4D /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				19C3C7202E97AE520000BE4D /* OpenFoodFactsProducts+Extensions.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
 		19C3C7262E97AE520000BE4D /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				19C3C7212E97AE520000BE4D /* Extensions */,
 				19C3C7232E97AE520000BE4D /* FoodSearchStateModel.swift */,
 				F2ACC0662EF88E0A00C86FBC /* SearchResultsState.swift */,
 				19C3C7242E97AE520000BE4D /* OpenFoodFactsSearchResponse.swift */,
@@ -1493,15 +1486,16 @@
 				19C3C72B2E97AE520000BE4D /* OpenFoodFactsService.swift */,
 				F29E5E3A2EE473F500D2CBC0 /* USDAFoodDataService.swift */,
 				F2FA688F2EEC538F00476D7B /* AIProviderClient.swift */,
-				F29E5E342EE4711D00D2CBC0 /* OpenAIFoodAnalysisService.swift */,
-				F29E5E362EE4724300D2CBC0 /* GoogleGeminiFoodAnalysisService.swift */,
-				F29E5E382EE4726A00D2CBC0 /* ClaudeFoodAnalysisService.swift */,
+				F29E5E342EE4711D00D2CBC0 /* OpenAIProtocol.swift */,
+				F29E5E362EE4724300D2CBC0 /* GeminiProtocol.swift */,
+				F29E5E382EE4726A00D2CBC0 /* ClaudeProtocol.swift */,
 				F2FA68872EE90B0F00476D7B /* AIPrompts.swift */,
-				F2FA68892EE90FD500476D7B /* ImageAnalysisCache.swift */,
 				F2FA688B2EE915A300476D7B /* ImageCompression.swift */,
 				F2FA688D2EE9180800476D7B /* NetworkQualityMonitor.swift */,
 				F2B06FCA2EEF49EC000EADA9 /* AIUsageStatistics.swift */,
 				F21957B02EF48B8D003C9F09 /* Debug.swift */,
+				F252846C2F01C81F0084D094 /* FoodImageStorageManager.swift */,
+				F29135512F02668F00BF9F95 /* OpenverseClient.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2440,6 +2434,7 @@
 				19C3C73E2E97AE7B0000BE4D /* ModernCameraView.swift */,
 				19C3C7402E97AE7B0000BE4D /* BarcodeScannerView.swift */,
 				19C3C7182E97AE520000BE4D /* SearchResultsView.swift */,
+				F25284682F01C7BC0084D094 /* ImageSelectorView.swift */,
 				F2FA68932EEC87D200476D7B /* AIProgressView.swift */,
 				F2D360FF2EE21D83004CC6B1 /* ModelQueryEditor.swift */,
 			);
@@ -3242,7 +3237,7 @@
 				38D0B3B625EBE24900CB6E88 /* Battery.swift in Sources */,
 				38C4D33725E9A1A300D30B77 /* DispatchQueue+Extensions.swift in Sources */,
 				F90692CF274B999A0037068D /* HealthKitDataFlow.swift in Sources */,
-				F29E5E352EE4711D00D2CBC0 /* OpenAIFoodAnalysisService.swift in Sources */,
+				F29E5E352EE4711D00D2CBC0 /* OpenAIProtocol.swift in Sources */,
 				CE7CA3552A064973004BE681 /* ListStateIntent.swift in Sources */,
 				190141362CDB9D4B00ABD925 /* Token.swift in Sources */,
 				19F191DE2BE4F97F00F6297E /* SharingProvider.swift in Sources */,
@@ -3303,6 +3298,7 @@
 				CEB434E328B8F9DB00B70274 /* BluetoothStateManager.swift in Sources */,
 				3811DE4225C9D4A100A708ED /* SettingsDataFlow.swift in Sources */,
 				1901412D2CDB92D600ABD925 /* RestoreDataFlow.swift in Sources */,
+				F25284692F01C7BC0084D094 /* ImageSelectorView.swift in Sources */,
 				19CE0E592DD9F30D0050FC89 /* Configuration.swift in Sources */,
 				3811DE2525C9D48300A708ED /* MainRootView.swift in Sources */,
 				CE94598229E9E3D30047C9C6 /* WatchConfigProvider.swift in Sources */,
@@ -3310,6 +3306,7 @@
 				38E44535274E411700EC9A94 /* Disk+Data.swift in Sources */,
 				3811DE3125C9D49500A708ED /* HomeProvider.swift in Sources */,
 				388E5A5C25B6F0770019842D /* JSON.swift in Sources */,
+				F252846D2F01C81F0084D094 /* FoodImageStorageManager.swift in Sources */,
 				3811DF0225CA9FEA00A708ED /* Credentials.swift in Sources */,
 				19DC678529CA67A400FD9EC4 /* OverrideProfilesRootView.swift in Sources */,
 				389A572026079BAA00BC102F /* Interpolation.swift in Sources */,
@@ -3322,7 +3319,7 @@
 				E00EEC0827368630002FF094 /* NetworkAssembly.swift in Sources */,
 				1920BF5D2B9DF53200E861FE /* BolusShortcut.swift in Sources */,
 				38A13D3225E28B4B00EAA382 /* PumpHistoryEvent.swift in Sources */,
-				F29E5E392EE4726A00D2CBC0 /* ClaudeFoodAnalysisService.swift in Sources */,
+				F29E5E392EE4726A00D2CBC0 /* ClaudeProtocol.swift in Sources */,
 				E00EEC0627368630002FF094 /* UIAssembly.swift in Sources */,
 				1901412F2CDB92F200ABD925 /* RestoreProvider.swift in Sources */,
 				3811DE1825C9D40400A708ED /* Router.swift in Sources */,
@@ -3397,6 +3394,7 @@
 				38F37828261260DC009DB701 /* Color+Extensions.swift in Sources */,
 				1982F7DB2BA6509D00EAFADE /* PumpStorage.swift in Sources */,
 				3811DE3F25C9D4A100A708ED /* SettingsStateModel.swift in Sources */,
+				F29135522F02668F00BF9F95 /* OpenverseClient.swift in Sources */,
 				CE7CA3582A064E2F004BE681 /* ListStateView.swift in Sources */,
 				193F6CDD2A512C8F001240FD /* Loops.swift in Sources */,
 				190141342CDB931A00ABD925 /* RestoreRootView.swift in Sources */,
@@ -3577,7 +3575,6 @@
 				19C3C7312E97AE520000BE4D /* BarcodeScannerService.swift in Sources */,
 				19C3C7342E97AE520000BE4D /* UserDefaults+Loop.swift in Sources */,
 				19C3C7352E97AE520000BE4D /* AIFoodAnalysis.swift in Sources */,
-				19C3C73A2E97AE520000BE4D /* OpenFoodFactsProducts+Extensions.swift in Sources */,
 				19C3C73B2E97AE520000BE4D /* OpenFoodFactsService.swift in Sources */,
 				19C3C73D2E97AE520000BE4D /* OpenFoodFactsSearchResponse.swift in Sources */,
 				38569353270B5E350002C50D /* CGMRootView.swift in Sources */,
@@ -3586,12 +3583,11 @@
 				0CEA2EA070AB041AF3E3745B /* BolusRootView.swift in Sources */,
 				1967DFC029D053AC00759F30 /* IconSelection.swift in Sources */,
 				BDFD165C2AE40688007F0DDA /* DefaultBolusCalcRootView.swift in Sources */,
-				F2FA688A2EE90FD500476D7B /* ImageAnalysisCache.swift in Sources */,
 				19D4E4EB29FC6A9F00351451 /* Charts.swift in Sources */,
 				FEFFA7A22929FE49007B8193 /* UIDevice+Extensions.swift in Sources */,
 				F90692D3274B9A130037068D /* AppleHealthKitRootView.swift in Sources */,
 				3862CC1F273FDC9200BF832C /* CalibrationsChart.swift in Sources */,
-				F29E5E372EE4724300D2CBC0 /* GoogleGeminiFoodAnalysisService.swift in Sources */,
+				F29E5E372EE4724300D2CBC0 /* GeminiProtocol.swift in Sources */,
 				19E1F7EC29D082FE005C8D20 /* IconConfigStateModel.swift in Sources */,
 				194C32772B93A9BF0016FB2A /* OverrideShortcuts.swift in Sources */,
 				196809E52D4702AD00BA566F /* TempBasalShortcut.swift in Sources */,
