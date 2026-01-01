@@ -362,6 +362,7 @@ extension AddCarbs {
                         glycemicIndex: preset.glycemicIndex as Decimal?,
                         imageURL: preset.imageURL,
                         standardName: preset.standardName,
+                        tags: preset.tags?.lowercased().split(separator: ",", omittingEmptySubsequences: true).map(String.init),
                         source: .database
                     )
                 } else {
@@ -376,6 +377,7 @@ extension AddCarbs {
                         glycemicIndex: preset.glycemicIndex as Decimal?,
                         imageURL: preset.imageURL,
                         standardName: preset.standardName,
+                        tags: preset.tags?.lowercased().split(separator: ",", omittingEmptySubsequences: true).map(String.init),
                         source: .database
                     )
                 }
@@ -448,6 +450,12 @@ extension AddCarbs {
             preset.mealUnits = (food.units ?? .grams).rawValue
 
             preset.standardName = food.standardName
+            if let tags = food.tags {
+                preset.tags = tags.map { tag in tag.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .joined(separator: ",")
+            } else {
+                preset.tags = nil
+            }
 
             preset.dish = food.name
 
