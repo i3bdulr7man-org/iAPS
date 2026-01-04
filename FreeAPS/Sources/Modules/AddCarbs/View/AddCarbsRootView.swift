@@ -18,6 +18,7 @@ extension AddCarbs {
         @State var saved = false
         @State var pushed = false
         @State var button = false
+
         @State private var showAlert = false
         @State private var presentPresets = false
         @State private var string = ""
@@ -29,6 +30,8 @@ extension AddCarbs {
         @State private var portionGrams: Decimal = 100.00001
         @State private var selectedFoodImage: UIImage?
         @State private var showCancelConfirmation = false
+
+        @State private var showingSettings = false
 
         @FetchRequest(
             entity: Presets.entity(),
@@ -43,6 +46,7 @@ extension AddCarbs {
 
         @Environment(\.managedObjectContext) var moc
         @Environment(\.colorScheme) var colorScheme
+        @EnvironmentObject var mainState: Main.StateModel
 
         init(
             resolver: Resolver,
@@ -102,26 +106,61 @@ extension AddCarbs {
             }
             .compactSectionSpacing()
             .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-            .navigationTitle("Add Meal")
+            .navigationTitle(foodSearchState.showSavedFoods ? "Saved Foods" : "Add Meal")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: shouldPreventDismiss) {
+                mainState.shouldPreventModalDismiss = shouldPreventDismiss
+            }
+            .onChange(of: foodSearchState.showSavedFoods) {
+                mainState.shouldPreventModalDismiss = shouldPreventDismiss
+            }
+            .onAppear {
+                mainState.shouldPreventModalDismiss = shouldPreventDismiss
+            }
+            .onDisappear {
+                mainState.shouldPreventModalDismiss = false
+            }
             .navigationBarItems(
                 leading:
-                NavigationLink(destination: FoodSearchSettingsView()) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .frame(width: 46, height: 46)
+                Group {
+                    if foodSearchState.showSavedFoods {
+                        Button(action: {
+                            foodSearchState.showNewSavedFoodEntry = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                Text("New")
+                                    .font(.body)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                    } else {
+                        Button {
+                            showingSettings = true
+                        }
+                        label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .frame(width: 46, height: 46)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
             )
-            .navigationBarItems(trailing: Button("Cancel", action: {
-                if hasUnsavedFoodSearchResults {
-                    showCancelConfirmation = true
-                } else {
-                    state.hideModal()
-                    if editMode { state.apsManager.determineBasalSync() }
+            .navigationBarItems(
+                trailing:
+                Button(action: {
+                    handleDismissAction()
+                }) {
+                    Text(foodSearchState.showSavedFoods ? "Done" : "Cancel")
                 }
-            }))
+            )
+            .sheet(isPresented: $showingSettings) {
+                FoodSearchSettingsView()
+            }
             .confirmationDialog(
                 "Discard Food Search?",
                 isPresented: $showCancelConfirmation,
@@ -700,6 +739,39 @@ extension AddCarbs {
         private var disabled: Bool {
             (newPreset == (NSLocalizedString("New", comment: ""), 0, 0, 0)) || (newPreset.dish == "") ||
                 (newPreset.carbs + newPreset.fat + newPreset.protein <= 0)
+        }
+
+        /// Determines if the view should prevent interactive dismissal (swipe down)
+        private var shouldPreventDismiss: Bool {
+            // Prevent dismiss if showing saved foods OR if there are unsaved changes
+            if foodSearchState.showSavedFoods {
+                return true // Block swipe when saved foods are shown
+            } else if hasUnsavedFoodSearchResults {
+                return true // Block swipe when there are unsaved food search results
+            } else {
+                return false // Allow swipe in other cases
+            }
+        }
+
+        /// Handles the dismiss action from the Cancel/Done button
+        private func handleDismissAction() {
+            // If showing saved foods, just close them
+            if foodSearchState.showSavedFoods {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    foodSearchState.showSavedFoods = false
+                }
+                return
+            }
+
+            // If there are unsaved food search results, show confirmation
+            if hasUnsavedFoodSearchResults {
+                showCancelConfirmation = true
+                return
+            }
+
+            // Otherwise, just dismiss
+            state.hideModal()
+            if editMode { state.apsManager.determineBasalSync() }
         }
 
         private var editView: some View {
