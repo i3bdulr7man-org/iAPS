@@ -31,8 +31,6 @@ extension AddCarbs {
         @State private var selectedFoodImage: UIImage?
         @State private var showCancelConfirmation = false
 
-        @State private var showingSettings = false
-
         @FetchRequest(
             entity: Presets.entity(),
             sortDescriptors: [NSSortDescriptor(key: "dish", ascending: true)], predicate:
@@ -136,17 +134,6 @@ extension AddCarbs {
                             }
                             .foregroundColor(.blue)
                         }
-                    } else {
-                        Button {
-                            showingSettings = true
-                        }
-                        label: {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.secondary.opacity(0.5))
-                                .frame(width: 46, height: 46)
-                        }
-                        .buttonStyle(PlainButtonStyle())
                     }
                 }
             )
@@ -158,11 +145,11 @@ extension AddCarbs {
                     Text(foodSearchState.showSavedFoods ? "Done" : "Cancel")
                 }
             )
-            .sheet(isPresented: $showingSettings) {
+            .sheet(isPresented: $foodSearchState.showingSettings) {
                 FoodSearchSettingsView()
             }
             .confirmationDialog(
-                "Discard Food Search?",
+                "Discard Meal?",
                 isPresented: $showCancelConfirmation,
                 titleVisibility: .visible
             ) {
@@ -172,7 +159,7 @@ extension AddCarbs {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("You have an unsaved food item. Are you sure you want to discard it?")
+                Text("Do you want to discard this meal?")
             }
             .onAppear {
                 state.loadEntries(editMode)

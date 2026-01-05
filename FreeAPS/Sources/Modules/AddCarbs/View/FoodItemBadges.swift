@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 enum NutritionBadgeConfig {
-    static let caloriesColor = Color.red
+    static let caloriesColor = Color.gray
     static let carbsColor = Color.orange
     static let proteinColor = Color.green
     static let fatColor = Color.blue
@@ -106,6 +106,8 @@ struct NutritionBadgePlain: View {
             return Color(red: 0.0, green: 0.4, blue: 0.8) // Darker blue
         case .purple:
             return Color(red: 0.6, green: 0.0, blue: 0.6) // Darker purple
+        case .gray:
+            return Color(red: 0.4, green: 0.4, blue: 0.4) // Darker gray for better contrast
         default:
             return color
         }
@@ -133,6 +135,7 @@ struct NutritionBadgePlain: View {
                     .minimumScaleFactor(0.7)
             }
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -166,6 +169,8 @@ struct NutritionBadgePlainStacked: View {
             return Color(red: 0.0, green: 0.4, blue: 0.8) // Darker blue
         case .purple:
             return Color(red: 0.6, green: 0.0, blue: 0.6) // Darker purple
+        case .gray:
+            return Color(red: 0.4, green: 0.4, blue: 0.4) // Darker gray for better contrast
         default:
             return color
         }
@@ -256,16 +261,45 @@ struct ConfidenceBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "brain")
-                .font(.system(size: 14))
-
-            Text(level.description)
-                .font(.caption)
-                .fontWeight(.regular)
+                .font(.system(size: 11))
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
         .padding(.vertical, 4)
         .background(level.color.opacity(backgroundOpacity))
         .foregroundColor(textColor)
+        .cornerRadius(4)
+    }
+}
+
+struct AdjustmentBadge: View {
+    let value: Decimal
+    let label: String
+    let color: Color
+
+    private var formattedValue: String {
+        let nsNumber = NSDecimalNumber(decimal: abs(value))
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        numberFormatter.maximumFractionDigits = 1
+        numberFormatter.minimumFractionDigits = 0
+        let valueString = numberFormatter.string(from: nsNumber) ?? "0"
+
+        let sign = value >= 0 ? "+" : "-"
+        return "\(sign)\(valueString)"
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(formattedValue)
+                .font(.caption2)
+                .fontWeight(.semibold)
+            Text(label)
+                .font(.caption2)
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.15))
         .cornerRadius(6)
     }
 }
