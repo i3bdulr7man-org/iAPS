@@ -1,0 +1,43 @@
+name: 6. Daily Upstream Sync
+run-name: Daily Upstream Sync (${{ github.ref_name }})
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/Artificial-Pancreas/iAPS.git
+          git fetch upstream
+
+      - name: Merge upstream dev into my-branch
+        run: |
+          git checkout my-branch
+          git merge upstream/dev --no-edit
+
+      - name: Push changes if needed
+        run: |
+          if [ -n "$(git log origin/my-branch..my-branch)" ]; then
+            echo "New commits detected. Pushing..."
+            git push origin my-branch
+          else
+            echo "No new commits. Skipping push."
+          fi
+

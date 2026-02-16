@@ -54,6 +54,8 @@ struct FreeAPSSettings: JSON, Equatable {
     var useCalc: Bool = true
     var fattyMeals: Bool = false
     var fattyMealFactor: Decimal = 0.7
+    var fastMeals: Bool = false
+    var fastMealFactor: Decimal = 1
     var displayPredictions: Bool = true
     var useLiveActivity: Bool = false
     var liveActivityChart = false
@@ -143,20 +145,6 @@ struct FreeAPSSettings: JSON, Equatable {
     // 1-min loops
     var allowOneMinuteLoop: Bool = false // allow running loops every minute
     var allowOneMinuteGlucose: Bool = false // allow sending 1-minute readings to oref, even if loops are with 5-minute intervals
-    // AI Food Search Variablen
-    var aiProvider: String = "Basic Analysis (Free)"
-    var claudeAPIKey: String = ""
-    var claudeQuery: String = ""
-    var openAIQuery: String = ""
-    var openAIAPIKey: String = ""
-    var googleGeminiAPIKey: String = ""
-    var googleGeminiQuery: String = ""
-    var barcodeSearchProvider: String = "OpenFoodFacts"
-    var textSearchProvider: String = "USDA FoodData Central"
-    var aiImageProvider: String = "OpenAI (ChatGPT API)"
-    var analysisMode: String = "standard"
-    var advancedDosingRecommendationsEnabled: Bool = false
-    var useGPT5ForOpenAI: Bool = false
     var ai: Bool = true
 
     var skipSave = false
@@ -270,6 +258,10 @@ extension FreeAPSSettings: Decodable {
             settings.fattyMeals = fattyMeals
         }
 
+        if let fastMeals = try? container.decode(Bool.self, forKey: .fastMeals) {
+            settings.fastMeals = fastMeals
+        }
+
         if let lowAlert = try? container.decode(Bool.self, forKey: .lowAlert) {
             settings.lowAlert = lowAlert
         }
@@ -296,6 +288,10 @@ extension FreeAPSSettings: Decodable {
 
         if let fattyMealFactor = try? container.decode(Decimal.self, forKey: .fattyMealFactor) {
             settings.fattyMealFactor = fattyMealFactor
+        }
+
+        if let fastMealFactor = try? container.decode(Decimal.self, forKey: .fastMealFactor) {
+            settings.fastMealFactor = fastMealFactor
         }
 
         if let overrideFactor = try? container.decode(Decimal.self, forKey: .overrideFactor) {
@@ -714,60 +710,6 @@ extension FreeAPSSettings: Decodable {
         }
         if let allowOneMinuteGlucose = try? container.decode(Bool.self, forKey: .allowOneMinuteGlucose) {
             settings.allowOneMinuteGlucose = allowOneMinuteGlucose
-        }
-
-        if let aiProvider = try? container.decode(String.self, forKey: .aiProvider) {
-            settings.aiProvider = aiProvider
-        }
-
-        if let claudeAPIKey = try? container.decode(String.self, forKey: .claudeAPIKey) {
-            settings.claudeAPIKey = claudeAPIKey
-        }
-
-        if let claudeQuery = try? container.decode(String.self, forKey: .claudeQuery) {
-            settings.claudeQuery = claudeQuery
-        }
-
-        if let openAIAPIKey = try? container.decode(String.self, forKey: .openAIAPIKey) {
-            settings.openAIAPIKey = openAIAPIKey
-        }
-
-        if let openAIQuery = try? container.decode(String.self, forKey: .openAIQuery) {
-            settings.openAIQuery = openAIQuery
-        }
-
-        if let googleGeminiAPIKey = try? container.decode(String.self, forKey: .googleGeminiAPIKey) {
-            settings.googleGeminiAPIKey = googleGeminiAPIKey
-        }
-
-        if let googleGeminiQuery = try? container.decode(String.self, forKey: .googleGeminiQuery) {
-            settings.googleGeminiQuery = googleGeminiQuery
-        }
-
-        if let textSearchProvider = try? container.decode(String.self, forKey: .textSearchProvider) {
-            settings.textSearchProvider = textSearchProvider
-        }
-        if let barcodeSearchProvider = try? container.decode(String.self, forKey: .barcodeSearchProvider) {
-            settings.barcodeSearchProvider = barcodeSearchProvider
-        }
-
-        if let aiImageProvider = try? container.decode(String.self, forKey: .aiImageProvider) {
-            settings.aiImageProvider = aiImageProvider
-        }
-
-        if let analysisMode = try? container.decode(String.self, forKey: .analysisMode) {
-            settings.analysisMode = analysisMode
-        }
-
-        if let advancedDosingRecommendationsEnabled = try? container.decode(
-            Bool.self,
-            forKey: .advancedDosingRecommendationsEnabled
-        ) {
-            settings.advancedDosingRecommendationsEnabled = advancedDosingRecommendationsEnabled
-        }
-
-        if let useGPT5ForOpenAI = try? container.decode(Bool.self, forKey: .useGPT5ForOpenAI) {
-            settings.useGPT5ForOpenAI = useGPT5ForOpenAI
         }
 
         if let ai = try? container.decode(Bool.self, forKey: .ai) {
