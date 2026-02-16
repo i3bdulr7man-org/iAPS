@@ -2,8 +2,7 @@ import Foundation
 import LoopKit
 
 extension UserDefaults {
-    private enum Key: String {
-        case aiProvider = "com.loopkit.Loop.aiProvider"
+    enum AIKey: String {
         case claudeAPIKey = "com.loopkit.Loop.claudeAPIKey"
         case openAIAPIKey = "com.loopkit.Loop.openAIAPIKey"
         case googleGeminiAPIKey = "com.loopkit.Loop.googleGeminiAPIKey"
@@ -22,7 +21,25 @@ extension UserDefaults {
         case aiProgressAnimation = "com.loopkit.Loop.AIProgressAnimation"
     }
 
-    var aiProvider: String {
+    var claudeAPIKey: String {
+        get {
+            string(forKey: AIKey.claudeAPIKey.rawValue) ?? ""
+        }
+        set {
+            set(newValue, forKey: AIKey.claudeAPIKey.rawValue)
+        }
+    }
+
+    var openAIAPIKey: String {
+        get {
+            string(forKey: AIKey.openAIAPIKey.rawValue) ?? ""
+        }
+        set {
+            set(newValue, forKey: AIKey.openAIAPIKey.rawValue)
+        }
+    }
+
+    var googleGeminiAPIKey: String {
         get {
             string(forKey: AIKey.googleGeminiAPIKey.rawValue) ?? ""
         }

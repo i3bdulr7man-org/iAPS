@@ -126,22 +126,17 @@ final class BaseDeviceDataManager: Injectable, DeviceDataManager {
 
     // MARK: - CGM
 
-    @PersistedProperty(key: "CGMManagerState") var rawCGMManager: CGMManager.RawValue?
-
     private(set) var cgmManager: CGMManager? {
         didSet {
             dispatchPrecondition(condition: .onQueue(.main))
             oldValue?.cgmManagerDelegate = nil
             oldValue?.delegateQueue = nil
             setupCGM()
-            rawCGMManager = cgmManager?.rawValue
-            UserDefaults.standard.clearLegacyCGMManagerRawValue()
+            UserDefaults.standard.cgmManagerRawValue = cgmManager?.rawValue
         }
     }
 
     // MARK: - Pump
-
-    @PersistedProperty(key: "PumpManagerState") var rawPumpManager: PumpManager.RawValue?
 
     private(set) var pumpManager: PumpManagerUI? {
         didSet {
@@ -155,21 +150,20 @@ final class BaseDeviceDataManager: Injectable, DeviceDataManager {
             }
 
             setupPump()
-            rawPumpManager = pumpManager?.rawValue
-            UserDefaults.standard.clearLegacyPumpManagerRawValue()
+            UserDefaults.standard.pumpManagerRawValue = pumpManager?.rawValue
         }
     }
 
     init(resolver: Resolver) {
         injectServices(resolver)
 
-        if let pumpManagerRawValue = rawPumpManager ?? UserDefaults.standard.legacyPumpManagerRawValue {
+        if let pumpManagerRawValue = UserDefaults.standard.pumpManagerRawValue {
             pumpManager = pumpManagerFromRawValue(pumpManagerRawValue)
         } else {
             pumpManager = nil
         }
 
-        if let cgmManagerRawValue = rawCGMManager ?? UserDefaults.standard.legacyCgmManagerRawValue {
+        if let cgmManagerRawValue = UserDefaults.standard.cgmManagerRawValue {
             cgmManager = cgmManagerFromRawValue(cgmManagerRawValue)
 
             // Handle case of PumpManager providing CGM
@@ -563,7 +557,7 @@ extension BaseDeviceDataManager: PumpManagerDelegate {
     }
 
     func pumpManagerDidUpdateState(_ pumpManager: PumpManager) {
-        rawPumpManager = pumpManager.rawValue
+        UserDefaults.standard.pumpManagerRawValue = pumpManager.rawValue
         if self.pumpManager == nil, let newPumpManager = pumpManager as? PumpManagerUI {
             self.pumpManager = newPumpManager
         }
@@ -804,7 +798,7 @@ extension BaseDeviceDataManager: CGMManagerDelegate {
 
     func cgmManagerDidUpdateState(_ manager: CGMManager) {
         dispatchPrecondition(condition: .onQueue(processQueue))
-        rawCGMManager = manager.rawValue
+        UserDefaults.standard.cgmManagerRawValue = manager.rawValue
         appCoordinator.setShouldUploadGlucose(manager.shouldSyncToRemoteService)
     }
 
