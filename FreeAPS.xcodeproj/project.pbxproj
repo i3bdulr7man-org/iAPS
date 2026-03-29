@@ -428,6 +428,7 @@
 		E39E418C56A5A46B61D960EE /* ConfigEditorStateModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5B4F8B4194BB7E260EF251 /* ConfigEditorStateModel.swift */; };
 		E3A08AAE59538BC8A8ABE477 /* NotificationsConfigDataFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3260468377DA9DB4DEE9AF6D /* NotificationsConfigDataFlow.swift */; };
 		E4984C5262A90469788754BB /* PreferencesEditorProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F8BA8533F56BC55748CA877 /* PreferencesEditorProvider.swift */; };
+		E539BE882E7B00290023ADD9 /* RadioButtonToggleStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E539BE872E7B00180023ADD9 /* RadioButtonToggleStyle.swift */; };
 		E97285ED9B814CD5253C6658 /* AddCarbsDataFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F48C3AC770D4CCD0EA2B0C2 /* AddCarbsDataFlow.swift */; };
 		E974172296125A5AE99E634C /* PumpConfigRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD22C985B79A2F0D2EA3D9D /* PumpConfigRootView.swift */; };
 		F21580A52E47B4FF003BC827 /* PeakPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F21580A42E47B4FE003BC827 /* PeakPicker.swift */; };
@@ -2662,6 +2663,7 @@
 		BD2FF19E2AE29D24005D1C5D /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				E539BE872E7B00180023ADD9 /* RadioButtonToggleStyle.swift */,
 				BD2FF19F2AE29D43005D1C5D /* CheckboxToggleStyle.swift */,
 			);
 			path = Components;
@@ -3627,6 +3629,7 @@
 				E974172296125A5AE99E634C /* PumpConfigRootView.swift in Sources */,
 				CE7CA3522A064973004BE681 /* ListTempPresetsIntent.swift in Sources */,
 				448B6FCB252BD4796E2960C0 /* PumpSettingsEditorDataFlow.swift in Sources */,
+				E539BE882E7B00290023ADD9 /* RadioButtonToggleStyle.swift in Sources */,
 				38E44536274E411700EC9A94 /* Disk.swift in Sources */,
 				193CA2DC2E1E743500DF9998 /* FunctionScript.swift in Sources */,
 				2BE9A6FA20875F6F4F9CD461 /* PumpSettingsEditorProvider.swift in Sources */,
