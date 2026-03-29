@@ -1093,7 +1093,7 @@ Enact a temp Basal or a temp target */
 "Additional notification types" = "Додаткове сповіщення";
 
 /* */
-"Misc" = "Різне";
+"Miscellaneous" = "Різне";
 
 /* */
 "Unit override" = "Задати величину";
@@ -1413,9 +1413,21 @@ Enact a temp Basal or a temp target */
 
 "Serving Size" = "Розмір порції";
 
+"Standard Serving" = "Standard Serving";
+
 "Food Name" = "Назва Страви";
 
 "Food" = "Страва";
+
+"Tag name" = "Tag name";
+
+"Add New Tag" = "Add New Tag";
+
+"Tags" = "Tags";
+
+"Show All Nutrients" = "Show All Nutrients";
+
+"Calories" = "Calories";
 
 "Quick access to your frequently used foods" = "Швидкий доступ до часто використовуваних страв";
 
@@ -1481,27 +1493,7 @@ Enact a temp Basal or a temp target */
 
 "**Text/Voice Search:**" = "**Текстовий/голосовий пошук:**";
 
-"• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods. Default for text and barcode searches." = "• **OpenFoodFacts**: Безкоштовна, відкрита база даних із широким охопленням штрих-кодів та текстовим пошуком для упакованих продуктів. За замовчуванням для пошуку тексту та штрих-кодів.";
-
-"• **OpenAI (ChatGPT API)**: Most accurate AI analysis using GPT-4 Vision. Requires API key (~$0.01 per image). Excellent at image analysis and natural language queries." = "• **OpenAI (ChatGPT API)**: Найточніший аналіз за допомогою ШІ з використанням GPT-4 Vision. Потрібен ключ API (~$0.01 за зображення). Відмінно підходить для аналізу зображень та запитів природною мовою.";
-
-"• **Google (Gemini API)**: Free AI with generous limits (1500/day). Excellent food recognition using Google's Vision AI. Perfect balance of quality and cost." = "• **Google (Gemini API)**: Безкоштовний штучний інтелект зі щедрими лімітами (1500/день). Відмінне розпізнавання їжі за допомогою штучного інтелекту Vision від Google. Ідеальний баланс якості та вартості.";
-
-"• **Anthropic (Claude API)**: Advanced AI with detailed reasoning. Excellent at food analysis and portion estimation. Requires API key (~$0.25 per million tokens)." = "• **Anthropic (Claude API)**: Розширений ШІ з детальним мисленням. Відмінно аналізує їжу та оцінює порції. Потрібен ключ API (~$0,25 за мільйон токенів).";
-
-"Available Search Providers:" = "Доступні пошукові системи:";
-
-"Provider Information" = "Інформація про постачальника";
-
-"✅ Select 'Anthropic (Claude API)', 'Google (Gemini API)', or 'OpenAI (ChatGPT API)' for AI Image Analysis to use your paid keys" = "✅ Виберіть «Anthropic (Claude API)», «Google (Gemini API)» або «OpenAI (ChatGPT API)» для аналізу зображень за допомогою штучного інтелекту, щоб використовувати ваші платні ключі";
-
-"When you take a photo of food, the app uses the provider selected in 'AI Image Analysis' above." = "Коли ви фотографуєте їжу, додаток використовує постачальника, вибраного в розділі «Аналіз зображень зі штучним інтелектом» вище.";
-
-"Camera Food Analysis" = "Аналіз харчових продуктів камерою";
-
-"To use your paid API keys, make sure to select the corresponding provider in 'AI Image Analysis' above. The provider you select for AI Image Analysis is what will be used when you take photos of food." = "Щоб використовувати платні ключі API, переконайтеся, що ви вибрали відповідного постачальника в розділі «Аналіз зображень зі штучним інтелектом» вище. Постачальник, якого ви оберете для аналізу зображень зі штучним інтелектом, буде використовуватися під час фотографування їжі.";
-
-"Important: How to Use Your API Keys" = "Важливо: Як використовувати ключі API";
+"• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods." = "• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods.";
 
 "AI Progress Animation" = "Анімація Прогресу зі ШІ";
 
@@ -1555,7 +1547,7 @@ Enact a temp Basal or a temp target */
 
 "ChatGPT (OpenAI) API Key" = "ChatGPT (OpenAI) API Key";
 
-"Get an API key from platform.openai.com. Customize the analysis prompt to get specific meal component breakdowns and nutrition totals. (~$0.01 per image)" = "Отримайте ключ API з platform.openai.com. Налаштуйте запит на аналіз, щоб отримати розподіл компонентів страв та загальну харчову цінність. (~$0.01 за зображення)";
+"Get an API key at platform.openai.com." = "Get an API key at platform.openai.com.";
 
 "OpenAI (ChatGPT API) Configuration" = "Конфігурація OpenAI (ChatGPT API)";
 
@@ -1563,17 +1555,17 @@ Enact a temp Basal or a temp target */
 
 "Google Gemini API Key" = "Ключ API Google Gemini";
 
-"Get a free API key from ai.google.dev. Google Gemini provides excellent food recognition with generous free tier (1500 requests per day)." = "Отримайте безкоштовний ключ API від ai.google.dev. Google Gemini забезпечує чудове розпізнавання їжі завдяки щедрому безкоштовному плану (1500 запитів на день).";
+"Get a free API key at ai.google.dev." = "Get a free API key at ai.google.dev.";
 
 "Google (Gemini API) Configuration" = "Конфігурація Google (Gemini API)";
 
-"Get a free API key from ai.google.dev. Google Gemini provides excellent food recognition with generous free tier (1500 requests per day)." = "Отримайте безкоштовний ключ API від ai.google.dev. Google Gemini забезпечує чудове розпізнавання їжі завдяки щедрому безкоштовному плану (1500 запитів на день).";
+"Get a free API key at ai.google.dev." = "Get a free API key at ai.google.dev.";
 
 "Enter your Claude API key" = "Введіть свій Ключ API Claude";
 
 "Claude API Key" = "Ключ API Claude";
 
-"Get a Claude API key from console.anthropic.com. Claude excels at detailed reasoning and food analysis. Pricing starts at $0.25 per million tokens for Haiku model." = "Отримайте ключ Claude API  на сайті console.anthropic.com. Клод чудово справляється з детальним мисленням та аналізом їжі. Ціна починається від 0,25 долара за мільйон токенів для моделі Haiku.";
+"Get an API key at console.anthropic.com." = "Get an API key at console.anthropic.com.";
 
 "Anthropic (Claude API) Configuration" = "Anthropic Конфігурація (Claude API))";
 
@@ -1587,7 +1579,6 @@ Enact a temp Basal or a temp target */
 
 "Provider for AI Image Analysis" = "Постачальник Послуг Аналізу Зображень зі ШІ";
 
-"Configure the API service used for each type of food search. AI Image Analysis controls what happens when you take photos of food. Different providers excel at different search methods." = "Налаштуйте службу API, яка використовується для кожного типу пошуку їжі. Аналіз зображень за допомогою штучного інтелекту контролює, що відбувається, коли ви фотографуєте їжу. Різні постачальники послуг чудово володіють різними методами пошуку.";
 
 "Food Search Provider Configuration" = "Конфігурація Постачальника Послуг Пошуку їжі";
 
@@ -1753,30 +1744,12 @@ Enact a temp Basal or a temp target */
 
 "• **USDA FoodData Central**: Free, official nutrition database. Superior nutrition data for non-packaged foods like fruits, vegetables, and meat." = "• **USDA FoodData Central**: Безкоштовна офіційна база даних про харчування. Чудові дані про харчування нефасованих продуктів, таких як фрукти, овочі та м’ясо.";
 
-"• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods. Default for text and barcode searches." = "• **OpenFoodFacts**: Безкоштовна, відкрита база даних із широким охопленням штрих-кодів та текстовим пошуком для упакованих продуктів. За замовчуванням для пошуку тексту та штрих-кодів.";
-
-"• **OpenAI (ChatGPT API)**: Most accurate AI analysis using GPT-4 Vision. Requires API key (~$0.01 per image). Excellent at image analysis and natural language queries." = "• **OpenAI (ChatGPT API)**: Найточніший аналіз за допомогою ШІ з використанням GPT-4 Vision. Потрібен ключ API (~$0.01 за зображення). Відмінно підходить для аналізу зображень та запитів природною мовою.";
-
-"• **Google (Gemini API)**: Free AI with generous limits (1500/day). Excellent food recognition using Google's Vision AI. Perfect balance of quality and cost." = "• **Google (Gemini API)**: Безкоштовний штучний інтелект зі щедрими лімітами (1500/день). Відмінне розпізнавання їжі за допомогою штучного інтелекту Vision від Google. Ідеальний баланс якості та вартості.";
-
-"• **Anthropic (Claude API)**: Advanced AI with detailed reasoning. Excellent at food analysis and portion estimation. Requires API key (~$0.25 per million tokens)." = "• **Anthropic (Claude API)**: Розширений ШІ з детальним мисленням. Відмінно аналізує їжу та оцінює порції. Потрібен ключ API (~$0,25 за мільйон токенів).";
-
-"Available Search Providers:" = "Доступні пошукові системи:";
-
-"Provider Information" = "Інформація про постачальника";
-
+"• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods." = "• **OpenFoodFacts**: Free, open database with extensive barcode coverage and text search for packaged foods.";
 "❌ If you select 'OpenFoodFacts' or 'USDA', camera analysis will use basic estimation instead of AI" = "❌ Якщо ви оберете «OpenFoodFacts» або «USDA», аналіз камери використовуватиме базову оцінку замість штучного інтелекту";
 
 "✅ Select 'Anthropic (Claude API)', 'Google (Gemini API)', or 'OpenAI (ChatGPT API)' for AI Image Analysis to use your paid keys" = "✅ Виберіть «Anthropic (Claude API)», «Google (Gemini API)» або «OpenAI (ChatGPT API)» для аналізу зображень за допомогою штучного інтелекту, щоб використовувати ваші платні ключі";
 
 "When you take a photo of food, the app uses the provider selected in 'AI Image Analysis' above." = "Коли ви фотографуєте їжу, додаток використовує постачальника, вибраного в розділі «Аналіз зображень зі штучним інтелектом» вище.";
-
-"Camera Food Analysis" = "Аналіз харчових продуктів камерою";
-
-"To use your paid API keys, make sure to select the corresponding provider in 'AI Image Analysis' above. The provider you select for AI Image Analysis is what will be used when you take photos of food." = "Щоб використовувати платні ключі API, переконайтеся, що ви вибрали відповідного постачальника в розділі «Аналіз зображень зі штучним інтелектом» вище. Постачальник, якого ви оберете для аналізу зображень зі штучним інтелектом, буде використовуватися під час фотографування їжі.";
-
-"Important: How to Use Your API Keys" = "Важливо: Як використовувати ключі API";
-
 "Break down this meal into individual components with complete macronutrient profiles (carbs, protein, fat, calories) per item and combined totals." = "Розбийте цю страву на окремі компоненти з повними профілями макронутрієнтів (вуглеводи, білки, жири, калорії) для кожного елемента та їх загальною кількістю";
 
 "Identify all food items in this image with focus on carbohydrate content for diabetes management. Provide detailed carb counts for each component and total meal carbohydrates." = "Визначте всі продукти харчування на цьому зображенні, зосереджуючись на вмісті вуглеводів для контролю діабету. Надайте детальну кількість вуглеводів для кожного компонента та загальну кількість вуглеводів у страві.";
@@ -1793,7 +1766,7 @@ Enact a temp Basal or a temp target */
 
 "ChatGPT (OpenAI) API Key" = "ChatGPT (OpenAI) API Key";
 
-"Get an API key from platform.openai.com. Customize the analysis prompt to get specific meal component breakdowns and nutrition totals. (~$0.01 per image)" = "Отримайте ключ API з platform.openai.com. Налаштуйте запит на аналіз, щоб отримати розподіл компонентів страв та загальну харчову цінність. (~$0.01 за зображення)";
+"Get an API key at platform.openai.com." = "Get an API key at platform.openai.com.";
 
 "OpenAI (ChatGPT API) Configuration" = "Конфігурація OpenAI (ChatGPT API)";
 
@@ -1807,7 +1780,7 @@ Enact a temp Basal or a temp target */
 
 "Google Gemini API Key" = "Ключ API Google Gemini";
 
-"Get a free API key from ai.google.dev. Google Gemini provides excellent food recognition with generous free tier (1500 requests per day)." = "Отримайте безкоштовний ключ API від ai.google.dev. Google Gemini забезпечує чудове розпізнавання їжі завдяки щедрому безкоштовному плану (1500 запитів на день).";
+"Get a free API key at ai.google.dev." = "Get a free API key at ai.google.dev.";
 
 "Google (Gemini API) Configuration" = "Конфігурація Google (Gemini API)";
 
@@ -2003,9 +1976,9 @@ Enact a temp Basal or a temp target */
 
 "Cal" = "Кал";
 
-" servings" = "порції";
+"servings" = "servings";
 
-" serving" = "порція";
+"serving" = "serving";
 
 "Reset to " = "Скинути до";
 
@@ -2858,9 +2831,6 @@ Enact a temp Basal or a temp target */
 /* UI/UX-setting */
 "Display Insulin Activity Chart" = "Відображення діаграми активності Інсуліну";
 
-/* UI/UX-setting */
-"Don't ask for saving search result as meal preset" = "Не запитувати збереження результатів пошуку як попереднього налаштування страв";
-
 /* --------------------------------------------------------  Dexcom G7 --------------------------------------*/
 
 "CGM Configuration" = "Конфігурація CGM";
@@ -3296,6 +3266,12 @@ Enact a temp Basal or a temp target */
 "Enable Auto ISF" = "Увімкнути автоматичний ISF";
 
 /* */
+"Enable Auto CR" = "Увімкнути автоматичний Вуглеводний Коефіцієнт";
+
+/* */
+"Highly Experimental!\n\nAdjusts your profile Carb Ratio each loop by the same amount as your profile ISF using autoISF settings.\n\nUse the bolus calculator with great care, this may cause dose recommendations to be too strong.\n\nAutoCR + autoISF can stack. Reduce autoISF aggressiveness first (e.g., lower max/weights), then enable AutoCR and monitor closely." = "Високоекспериментально!\n\nКоригує вуглеводний коефіцієнт вашого профілю в кожному циклі на ту саму величину, що й ISF вашого профілю, використовуючи налаштування autoISF.\n\nВикористовуйте калькулятор болюса з великою обережністю, це може призвести до занадто суворих рекомендацій щодо дози.\n\nAutoCR + autoISF можуть сумуватися. Спочатку зменште агресивність autoISF (наприклад, зменшіть максимум/вагу), потім увімкніть AutoCR та уважно стежте.";
+
+/* */
 "Enables Auto ISF. This will disable any eventual dynamic ISF/CR setting" = "Вмикає автоматичний ISF. Це вимкне будь-яке можливе динамічне налаштування ISF/CR";
 
 /* */
@@ -3617,14 +3593,8 @@ Enact a temp Basal or a temp target */
 /* Dynamic ISF Setting Title */
 "Minimum Threshold Setting" = "Налаштування Мінімального Порогу";
 
-/* Minimum Threshold Setting, Part 1 */
-"This setting lets you choose a level below which no insulin will be given.\n\nThe threshold is using the largest amount of your threshold setting and the computed threshold:\n\nTarget Glucose - (Target Glucose - 40) / 2\n, here using mg/dl as glucose unit.\n\nFor example, if your Target Glucose is " = "Цей параметр дає змогу вибрати рівень, нижче якого інсулін не вводитиметься.\n\nПорогове значення використовує найбільшу кількість вашого порогового налаштування та обчисленого порогу:\n\nЦільовий рівень глюкози - (Цільовий рівень глюкози - 40) / 2\n , тут використовується мг/дл як одиниця глюкози.\n\nНаприклад, якщо ваш цільовий рівень глюкози";
-
-/* Minimum Threshold Setting, Part 2 */
-"the threshold will be " = "поріг буде";
-
-/* Minimum Threshold Setting, Part 3 */
-"unless your threshold setting is set higher:" = "якщо ваше порогове значення не встановлено вище:";
+/* Minimum Threshold Setting */
+"This setting lets you choose a glucose target limit below which no SMB insulin or extra temporary basal insulin will ever be given. Extra temporary basal insulin is the insulin exceeding the insulin required for the basal metabolism.\n\nThe actual glucose threshold used in OpenAPS algoritm will always be the bigger amount of this setting and the computed value:\n\nTarget Glucose - (Target Glucose - 40) / 2." = "This setting lets you choose a glucose target limit below which no SMB insulin or extra temporary basal insulin will ever be given. Extra temporary basal insulin is the insulin exceeding the insulin required for the basal metabolism.\n\nThe actual glucose threshold used in OpenAPS algoritm will always be the bigger amount of this setting and the computed value:\n\nTarget Glucose - (Target Glucose - 40) / 2.";
 
 /* Threshold Table Columns Title */
 "Setting" = "Налаштування";
@@ -3966,3 +3936,14 @@ Enact a temp Basal or a temp target */
 
 /* main chart settings - toggle, controls whether to show y-axis labels (glucose) */
 "Y-axis labels" = "Мітки осі Y";
+
+"Fiber" = "Fiber";
+
+"Sugars" = "Sugars";
+
+"Search Results" = "Search Results";
+
+"Results for" = "Results for";
+
+/* name of complete meals when saving */
+"Complete Meal" = "Complete Meal";
