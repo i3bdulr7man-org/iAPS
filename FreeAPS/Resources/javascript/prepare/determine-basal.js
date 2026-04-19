@@ -91,9 +91,15 @@ function generate(iob, currenttemp, glucose, profile, autosens = null, meal = nu
     var glucose_status = freeaps_glucoseGetLast(glucose)
     
     // Auto ISF
-    if (profile.iaps.autoisf) {
+    if (profile.iaps.autoisf && !(dynamicVariables.aisfOverridden && !dynamicVariables.autoISFoverrides.autoisf)) {
         autosens_data.ratio = profile.aisf;
         console.log("Auto ISF ratio: " + autosens_data.ratio);
+        
+        if (profile.iaps.autocr) {
+            profile.carb_ratio = round(profile.carb_ratio / profile.aisf, 1);
+            console.log("Auto CR ratio: " + profile.carb_ratio);
+        }
+        
         if (microbolusAllowed && !profile.microbolusAllowed) {
             microbolusAllowed = false;
             console.log("SMBs disabled by Auto ISF layer");
@@ -116,7 +122,7 @@ function dynisf(profile, autosens_data, dynamicVariables, glucose) {
     var dynISFenabled = true;
     
     //Turn off when Auto ISF is used
-    if (profile.iaps.autoisf) {
+    if (profile.iaps.autoisf && !(dynamicVariables.aisfOverridden && !dynamicVariables.autoISFoverrides.autoisf)) {
         console.log("Dynamic ISF disabled due to Auto ISF.");
         return;
     }

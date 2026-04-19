@@ -58,22 +58,21 @@ extension Dynamic {
                         Text("Dynamic ISF is disabled while Auto ISF is enabled")
                             .frame(maxWidth: .infinity, alignment: .center)
                             .foregroundStyle(.red)
-                    } else {
-                        HStack {
-                            Toggle(isOn: $state.useNewFormula) {
-                                Text("Activate Dynamic Sensitivity (ISF)")
-                                    .onTapGesture {
-                                        info(
-                                            header: "Activate Dynamic Sensitivity (ISF)",
-                                            body: "Calculate a new Insulin Sensitivity Setting (ISF) upon every loop cycle. The new ISF will be based on your current Glucose, total daily dose of insulin (TDD, past 24 hours of all delivered insulin) and an individual Adjustment Factor (recommendation to start with is 0.5 if using Sigmoid Function and 0.8 if not).\n\nAll of the Dynamic ISF and CR adjustments will be limited by your autosens.min/max limits.",
-                                            useGraphics: nil
-                                        )
-                                    }
-                            }.disabled(isPresented)
-                        }
+                    }
+                    HStack {
+                        Toggle(isOn: $state.useNewFormula) {
+                            Text("Activate Dynamic Sensitivity (ISF)")
+                                .onTapGesture {
+                                    info(
+                                        header: "Activate Dynamic Sensitivity (ISF)",
+                                        body: "Calculate a new Insulin Sensitivity Setting (ISF) upon every loop cycle. The new ISF will be based on your current Glucose, total daily dose of insulin (TDD, past 24 hours of all delivered insulin) and an individual Adjustment Factor (recommendation to start with is 0.5 if using Sigmoid Function and 0.8 if not).\n\nAll of the Dynamic ISF and CR adjustments will be limited by your autosens.min/max limits.",
+                                        useGraphics: nil
+                                    )
+                                }
+                        }.disabled(isPresented)
                     }
 
-                    if state.useNewFormula, !state.aisf {
+                    if state.useNewFormula {
                         HStack {
                             Toggle(isOn: $state.enableDynamicCR) {
                                 Text("Activate Dynamic Carb Ratio (CR)")
@@ -90,7 +89,7 @@ extension Dynamic {
                     }
                 } header: { state.aisf ? nil : Text("Experimental").foregroundStyle(.red) }
 
-                if state.useNewFormula, !state.aisf {
+                if state.useNewFormula {
                     Section {
                         HStack {
                             Toggle(isOn: $state.sigmoid) {
@@ -138,34 +137,6 @@ extension Dynamic {
 
                     } header: { Text("Settings") }
                 }
-
-                Section {
-                    HStack {
-                        Text("Threshold Setting")
-                            .onTapGesture {
-                                scrollView = true
-                                graphics = thresholdTable().asAny()
-                                let unitString = state.unit.rawValue
-                                info(
-                                    header: "Minimum Threshold Setting",
-                                    body: NSLocalizedString(
-                                        "This setting lets you choose a level below which no insulin will be given.\n\nThe threshold is using the largest amount of your threshold setting and the computed threshold:\n\nTarget Glucose - (Target Glucose - 40) / 2\n, here using mg/dl as glucose unit.\n\nFor example, if your Target Glucose is ",
-                                        comment: "Threshold string part 1"
-                                    ) + "\(glucoseString(100)) \(unitString) , " +
-                                        NSLocalizedString("the threshold will be ", comment: "Threshold string part 2") +
-                                        " \(glucoseString(70)) \(unitString), " + NSLocalizedString(
-                                            "unless your threshold setting is set higher:",
-                                            comment: "Threshold string part 3"
-                                        ),
-                                    useGraphics: graphics
-                                )
-                            }
-                        Spacer()
-                        DecimalTextField("0", value: $state.threshold_setting, formatter: glucoseFormatter)
-                            .disabled(isPresented)
-                        Text(state.unit.rawValue)
-                    }
-                } header: { Text("Safety") }
 
                 if let averages = state.averages {
                     Section {
