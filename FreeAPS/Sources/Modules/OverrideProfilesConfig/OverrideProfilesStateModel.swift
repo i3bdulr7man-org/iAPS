@@ -154,6 +154,7 @@ extension OverrideProfilesConfig {
                 saveOverride.id = useId
                 isPreset = true
                 saveOverride.date = Date()
+                saveOverride.order = Int16(OverrideStorage().fetchProfiles().map(\.order).max() ?? -1) + 1
                 if override_target {
                     saveOverride.target = (
                         units == .mmolL
