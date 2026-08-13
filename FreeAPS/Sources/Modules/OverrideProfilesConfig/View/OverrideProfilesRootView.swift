@@ -19,7 +19,10 @@ extension OverrideProfilesConfig {
 
         @FetchRequest(
             entity: OverridePresets.entity(),
-            sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)], predicate: NSPredicate(
+            sortDescriptors: [
+                NSSortDescriptor(key: "order", ascending: true),
+                NSSortDescriptor(key: "name", ascending: true)
+            ], predicate: NSPredicate(
                 format: "name != %@", "Empty" as String
             )
         ) var fetchedProfiles: FetchedResults<OverridePresets>
@@ -84,10 +87,14 @@ extension OverrideProfilesConfig {
             overridesView
                 .navigationBarTitle("Profiles")
                 .navigationBarTitleDisplayMode(.inline)
-                .navigationBarItems(trailing: Button("Close", action: state.hideModal))
+                .navigationBarItems(
+                    trailing: Button("Close", action: state.hideModal)
+                )
+
                 .dynamicTypeSize(...DynamicTypeSize.xxLarge)
                 .onAppear {
                     state.savedSettings(edit: false, identifier: nil)
+                    initializeOrderIfNeeded()
                 }
                 .alert(
                     "Start Profile",
@@ -115,6 +122,7 @@ extension OverrideProfilesConfig {
                                 }
                         }
                         .onDelete(perform: removeProfile)
+                        .onMove(perform: moveProfiles)
                     }
                 }
 
@@ -909,6 +917,56 @@ extension OverrideProfilesConfig {
             } catch {
                 debug(.apsManager, "Couldn't profile preset at \(offsets).")
             }
+            normalizeOrder()
+        }
+
+        /// Reorder profiles via the native `.onMove` gesture (smooth, iOS-native).
+        /// Re-assigns sequential `order` values so the persisted sort matches the UI.
+        private func moveProfiles(from source: IndexSet, to destination: Int) {
+            var reordered = fetchedProfiles.uniqued(on: \.id)
+            reordered.move(fromOffsets: source, toOffset: destination)
+
+            for (newIndex, preset) in reordered.enumerated() {
+                preset.order = Int16(newIndex)
+            }
+
+            do {
+                try moc.save()
+            } catch {
+                debug(.apsManager, "Failed to persist profile order: \(error)")
+            }
+        }
+
+        private func normalizeOrder(alphabeticalFallback: Bool = false) {
+            let profiles = fetchedProfiles.uniqued(on: \.id)
+            let sorted = alphabeticalFallback
+                ? profiles.sorted { ($0.name ?? "") < ($1.name ?? "") }
+                : profiles
+
+            var changed = false
+            for (index, preset) in sorted.enumerated() {
+                let target = Int16(index)
+                if preset.order != target {
+                    preset.order = target
+                    changed = true
+                }
+            }
+
+            if changed {
+                do {
+                    try moc.save()
+                } catch {
+                    debug(.apsManager, "Failed to persist profile order: \(error)")
+                }
+            }
+        }
+
+        private func initializeOrderIfNeeded() {
+            let profiles = fetchedProfiles.uniqued(on: \.id)
+            let unassignedCount = profiles.filter { $0.order == 0 }.count
+            // More than one preset at order 0 means ordering was never set.
+            guard unassignedCount > 1 else { return }
+            normalizeOrder(alphabeticalFallback: true)
         }
 
         private func save(_ preset: OverridePresets) {
