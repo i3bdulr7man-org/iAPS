@@ -1344,6 +1344,5 @@ extension Home {
                 }
             }
         }
-
     }
 }
