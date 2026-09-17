@@ -10,21 +10,29 @@ final class OpenAPS {
     private let glucoseStorage: GlucoseStorage
     private let nightscout: NightscoutManager
     private let pumpStorage: PumpHistoryStorage
+    // Boost V6 persisted-state store — kept for the process lifetime so the in-memory cache
+    // survives rapid successive invokes (upstream Fix 6).
+    private let boostStateStore: BoostStateStore
 
     let coredataContext = CoreDataStack.shared.persistentContainer.viewContext
+
+    private let settingsManager: SettingsManager
 
     init(
         storage: FileStorage,
         glucoseStorage: GlucoseStorage,
         nightscout: NightscoutManager,
         pumpStorage: PumpHistoryStorage,
-        scriptExecutor: WebViewScriptExecutor
+        scriptExecutor: WebViewScriptExecutor,
+        settingsManager: SettingsManager
     ) {
         self.storage = storage
         self.glucoseStorage = glucoseStorage
         self.nightscout = nightscout
         self.pumpStorage = pumpStorage
         self.scriptExecutor = scriptExecutor
+        self.settingsManager = settingsManager
+        boostStateStore = BoostStateStore.shared(storage: storage)
     }
 
     func determineBasal(
@@ -71,6 +79,67 @@ final class OpenAPS {
                     let settings = FreeAPSSettings(from: data)
                     var profile = storedProfile
                     print("Time for Loading files \(-1 * now.timeIntervalSinceNow) seconds")
+
+                    // V6 anticipatory pre-meal target (upstream 2026-06-15): learned habitual
+                    // meal times (fresh CONFIRMED commits) lower the target ~45–60 min before
+                    // a meal so insulinReq is already elevated when carbs land. LOWER-ONLY;
+                    // shadow-first (toggle OFF logs "WOULD apply", no change). Upstream
+                    // suppresses during exercise/recovery — iAPS has no exercise signal (the
+                    // HealthKit roadmap item), so that suppression is omitted by necessity.
+                    var boostPreMealNote: String?
+                    if let boostSettings = settings, boostSettings.boostMode != .off {
+                        let mealHistory = BoostMealTimeLearner.History(
+                            events: self.boostStateStore.load().aux.mealTimeEvents ?? []
+                        )
+                        let comps = Calendar.current.dateComponents([.hour, .minute], from: clock)
+                        let nowMin = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+                        // Upstream bounds the keys themselves (DoubleKey ApsBoostV6PreMealLeadMin
+                        // 30–90 / ApsBoostV6PreMealTargetMgdl 65–90); clamp at the read — a
+                        // hand-normalized out-of-range value must not lower targets past the
+                        // engine's floor (the lower-only guard alone cannot stop e.g. 40 mg/dL).
+                        let leadMaxMin = Int(min(90.0, max(30.0, NSDecimalNumber(
+                            decimal: boostSettings.boostPreMealLeadMin
+                        ).doubleValue)))
+                        if let hit = BoostMealTimeLearner.preMealWindow(
+                            mealHistory, nowMin: nowMin,
+                            localOffsetMs: Double(TimeZone.current.secondsFromGMT() * 1000),
+                            leadMaxMin: leadMaxMin
+                        ) {
+                            let preMealTarget = min(90.0, max(65.0, NSDecimalNumber(
+                                decimal: boostSettings.boostPreMealTargetMgdl
+                            ).doubleValue))
+                            let mealClock = String(
+                                format: "%02d:%02d",
+                                locale: boostGateFormatLocale,
+                                hit.mode.centreMin / 60, hit.mode.centreMin % 60
+                            )
+                            if let pData = profile.data(using: .utf8),
+                               var pObj = try? JSONSerialization.jsonObject(with: pData) as? [String: Any],
+                               let currentTarget = (pObj["target_bg"] as? Double) ?? (pObj["target_bg"] as? Int).map(Double.init)
+                            {
+                                if boostSettings.boostPreMealTarget {
+                                    if preMealTarget < currentTarget { // lower-only
+                                        pObj["target_bg"] = preMealTarget
+                                        pObj["min_bg"] = min((pObj["min_bg"] as? Double) ?? preMealTarget, preMealTarget)
+                                        pObj["max_bg"] = min((pObj["max_bg"] as? Double) ?? preMealTarget, preMealTarget)
+                                        if let out = try? JSONSerialization.data(withJSONObject: pObj),
+                                           let patched = String(data: out, encoding: .utf8)
+                                        {
+                                            profile = patched
+                                        }
+                                        boostPreMealNote =
+                                            "V6 pre-meal ACTIVE target=\(Int(preMealTarget)) (learned ~\(mealClock), \(hit.minutesBeforeMeal)min before, \(hit.mode.distinctDays)d); "
+                                    } else {
+                                        boostPreMealNote =
+                                            "V6 pre-meal skipped (target \(Int(preMealTarget)) ≥ current \(Int(currentTarget))); "
+                                    }
+                                } else {
+                                    boostPreMealNote =
+                                        "V6 pre-meal WOULD apply \(Int(preMealTarget)) (learned ~\(mealClock), \(hit.minutesBeforeMeal)min before, \(hit.mode.distinctDays)d); "
+                                }
+                            }
+                        }
+                    }
 
                     now = Date.now
                     let tdd = CoreDataStorage()
@@ -185,6 +254,242 @@ final class OpenAPS {
                             settings: settings,
                             override: override
                         )
+
+                        // Boost V6 layer (experimental). Shadow mode appends telemetry to the
+                        // reason only; active mode may replace the SMB units when a meal
+                        // hypothesis is held (non-meal cycles are capped at oref's would-dose).
+                        // Runs AFTER reasons so the tag is preserved verbatim; runs BEFORE the
+                        // save so both shadow telemetry and active overrides reach enact/suggested.
+                        // Context for the hypo-risk model: 24h TDD (CoreData, computed above)
+                        // + profile ISF for the expectedDelta (BGI) feature.
+                        let boostEnabled = settings?.boostMode != .off
+                        var boostTddTotal: Double?
+                        if boostEnabled, let tdd {
+                            let total = ((tdd.bolus ?? 0) as Decimal) + ((tdd.tempBasal ?? 0) as Decimal)
+                            boostTddTotal = NSDecimalNumber(decimal: total).doubleValue
+                        }
+                        var boostIsf: Double?
+                        if boostEnabled, let profileData = profile.data(using: .utf8),
+                           let profileObj = try? JSONSerialization.jsonObject(with: profileData) as? [String: Any]
+                        {
+                            for key in ["sens", "isf", "sensitivity"] {
+                                if let v = profileObj[key] as? Double { boostIsf = v
+                                    break }
+                                if let v = profileObj[key] as? Int { boostIsf = Double(v)
+                                    break }
+                                if let v = profileObj[key] as? String, let d = Double(v) { boostIsf = d
+                                    break }
+                            }
+                        }
+                        // Boost context: pump-history SMB truth (upstream PersistenceLayer
+                        // BS.Type.SMB — real delivered amounts) + the scheduled basal the
+                        // primer temp-basal raise is computed against. Missing history stays
+                        // nil → the cumulative guard fails closed inside BoostEngine.
+                        var boostPumpSmbVol: Double?
+                        var boostPumpSmbSinceMin: Double?
+                        if boostEnabled,
+                           let events = self.storage.retrieve(OpenAPS.Monitor.pumpHistory, as: [PumpHistoryEvent].self)
+                        {
+                            let smbs = events.filter { $0.type == .bolus && $0.isSMB == true }
+                            let last = smbs.map(\.timestamp).max()
+                            boostPumpSmbSinceMin = min(720.0, last.map { clock.timeIntervalSince($0) / 60 } ?? 720.0)
+                            let sum = smbs.filter { $0.timestamp >= clock.addingTimeInterval(-3600) }
+                                .reduce(Decimal(0)) { $0 + ($1.amount ?? 0) }
+                            boostPumpSmbVol = NSDecimalNumber(decimal: sum).doubleValue
+                        }
+                        var boostBasal: Double?
+                        if boostEnabled,
+                           let basalProfile = self.storage.retrieve(Settings.basalProfile, as: [BasalProfileEntry].self)
+                        {
+                            let comps = Calendar.current.dateComponents([.hour, .minute], from: clock)
+                            let minutes = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+                            let sorted = basalProfile.sorted { $0.minutes < $1.minutes }
+                            // The segment covering `now`; before the first entry the previous
+                            // day's last segment is still in force.
+                            let rate = (sorted.last { $0.minutes <= minutes } ?? sorted.last)?.rate
+                            boostBasal = rate.map { NSDecimalNumber(decimal: $0).doubleValue }
+                        }
+                        // Auto-config stats (upstream V1Profile): gathered ONLY while open
+                        // knobs remain — the trailing-14d digest of the user's own dosing
+                        // and glycaemia. Days/TDD come from the CoreData TDD entity (14d,
+                        // written every loop — iAPS's pump-history FILE is trimmed to ~1 day,
+                        // so it can never satisfy the ≥7-day gate); the individual boluses
+                        // the percentiles need are a rolling digest maintained in the Boost
+                        // state, merged from each cycle's 1-day pump-history window.
+                        var boostAutoConfigStats: BoostAutoConfig.Profile?
+                        let resolvedKnobs = Set(self.boostStateStore.load().aux.autoConfigResolved ?? [])
+                        // Gather while onboarding knobs are open (14 d) OR once they are all
+                        // resolved and the periodic re-derivation is due (28 d window).
+                        let boostOnboardingDue = resolvedKnobs.count < BoostAutoConfigKnob.allCases.count
+                        let boostAuxForDue = self.boostStateStore.load().aux
+                        let (boostRedriveDue, _) = BoostAutoConfig.redriveDue(
+                            resolvedCount: resolvedKnobs.count,
+                            schemaVersion: boostAuxForDue.redriveSchemaVersion,
+                            lastRunMs: boostAuxForDue.redriveLastRunMs ?? 0,
+                            nowMs: clock.timeIntervalSince1970 * 1000
+                        )
+                        let boostLookbackDays = boostOnboardingDue
+                            ? BoostAutoConfig.lookbackDays : BoostAutoConfig.redriveLookbackDays
+                        if boostEnabled, boostOnboardingDue || boostRedriveDue {
+                            var boostDigest = self.boostStateStore.load().aux.bolusDigest ?? []
+                            if let events = self.storage.retrieve(OpenAPS.Monitor.pumpHistory, as: [PumpHistoryEvent].self) {
+                                boostDigest = BoostAutoConfig.mergeBolusDigest(
+                                    existing: boostDigest,
+                                    events: events.compactMap { e in
+                                        guard e.type == .bolus, let amt = e.amount, amt > 0 else { return nil }
+                                        return (
+                                            id: e.id, date: e.timestamp,
+                                            amount: NSDecimalNumber(decimal: amt).doubleValue,
+                                            isSMB: e.isSMB == true
+                                        )
+                                    },
+                                    now: clock,
+                                    lookbackDays: boostLookbackDays
+                                )
+                                var digestState = self.boostStateStore.load()
+                                digestState.aux.bolusDigest = boostDigest
+                                self.boostStateStore.save(digestState)
+                            }
+                            let since14 = clock.addingTimeInterval(-boostLookbackDays * 24 * 3600)
+                            let tddRows = CoreDataStorage().fetchTDD(interval: since14 as NSDate)
+                                .compactMap { row -> (date: Date, tdd: Double)? in
+                                    guard let ts = row.timestamp, let total = row.tdd else { return nil }
+                                    return (ts, total.doubleValue)
+                                }
+                            let tddStats = BoostAutoConfig.dailyTddStats(tddRows)
+                            let readings = CoreDataStorage().fetchGlucose(interval: since14 as NSDate)
+                            let values = readings.compactMap { $0.glucose >= 1 ? Double($0.glucose) : nil }
+                            let n = Double(values.count)
+                            let manual = boostDigest.filter { !$0.isSMB }.map(\.units)
+                            let smbs = boostDigest.filter { $0.isSMB }.map(\.units)
+                            boostAutoConfigStats = BoostAutoConfig.Profile(
+                                daysWithData: tddStats.days,
+                                bgReadingCount: values.count,
+                                tddMedianU: tddStats.medianU,
+                                manualBolusesU: manual,
+                                smbAmountsU: smbs,
+                                tbrBelow70Pct: n > 0 ? 100.0 * Double(values.filter { $0 < 70 }.count) / n : 0,
+                                timeBelow54Pct: n > 0 ? 100.0 * Double(values.filter { $0 < 54 }.count) / n : 0,
+                                meanGlucoseMgdl: n > 0 ? values.reduce(0, +) / n : 0,
+                                currentMaxIobU: preferencesData.map { NSDecimalNumber(decimal: $0.maxIOB).doubleValue } ?? 1.0,
+                                currentMaxBolusU: 0 // AAPS-only knob (boost bolus cap) — not ported
+                            )
+                        }
+                        let boostResult = BoostEngine.runCycle(
+                            glucose: glucose,
+                            suggestion: suggestion,
+                            preferences: preferencesData,
+                            settings: settings,
+                            iobJSON: iob,
+                            stateStore: self.boostStateStore,
+                            context: BoostCycleContext(
+                                tddTotalU: boostTddTotal,
+                                isfMgdlPerU: boostIsf,
+                                basalRateUPerH: boostBasal,
+                                pumpSmbUnits60Min: boostPumpSmbVol,
+                                pumpMinutesSinceLastSmb: boostPumpSmbSinceMin,
+                                autoConfigStats: boostAutoConfigStats
+                            ),
+                            now: clock
+                        )
+                        if let boostTag = boostResult.reasonTag {
+                            suggestion.reason = (suggestion.reason ?? "") + "; " + boostTag
+                            // Mirror the tag into the diagnostic log so Boost telemetry is
+                            // included in Share Logs (log.txt) and the daily NS log upload —
+                            // the SUGGESTED dump at the top of determineBasal fires BEFORE
+                            // this append and would otherwise never carry it.
+                            debug(.openAPS, boostTag)
+                        }
+                        if let preMealNote = boostPreMealNote {
+                            suggestion.reason = (suggestion.reason ?? "") + "; " + preMealNote
+                            debug(.openAPS, preMealNote)
+                        }
+                        // V6 meal-time learner (upstream 2026-06-15): a FRESH CONFIRMED commit
+                        // is the event V5 itself treats as a meal — record it so the pre-meal
+                        // window learns this user's habitual meal times (persisted durably).
+                        if let boostDecision = boostResult.decision,
+                           boostDecision.mealHypothesis == .confirmed, boostDecision.mealHypothesisAge == 0
+                        {
+                            var learnerState = self.boostStateStore.load()
+                            var mealHistory = BoostMealTimeLearner.History(
+                                events: learnerState.aux.mealTimeEvents ?? []
+                            )
+                            mealHistory.record(tsMs: clock.timeIntervalSince1970 * 1000)
+                            learnerState.aux.mealTimeEvents = mealHistory.events
+                            self.boostStateStore.save(learnerState)
+                        }
+                        if let boostUnits = boostResult.overrideUnits {
+                            suggestion.units = boostUnits > 0 ? boostUnits : nil
+                        }
+                        // Temp-basal primer raise (additive-only; a protective base temp
+                        // already won inside BoostEngine and these stay nil).
+                        if let boostRate = boostResult.overrideRate {
+                            suggestion.rate = boostRate
+                        }
+                        if let boostDuration = boostResult.overrideDuration {
+                            suggestion.duration = boostDuration
+                        }
+                        // …and into the decision history (CoreData, like the Auto ISF /
+                        // dy ISF histories — survives app reinstalls; NS keeps the durable
+                        // copy in reason). Captured AFTER the override block: rate/duration
+                        // are what the loop actually enacted this cycle (primer raise incl.).
+                        if let boostTag = boostResult.reasonTag {
+                            CoreDataStorage.migrateBoostLogRingIfNeeded(self.storage)
+                            // SMB column = what the pump ACTUALLY receives: suggestion.units
+                            // AFTER the override block (Boost's dose with its seam guards —
+                            // post-rescue/rebound/cumulative — applied, or oref's own in
+                            // shadow/no-override cycles; 0 when an override zeroed the SMB).
+                            CoreDataStorage().saveBoostDecision(
+                                ts: clock,
+                                tag: boostTag,
+                                telemetry: boostResult.telemetry,
+                                enactedSmb: suggestion.units.map { NSDecimalNumber(decimal: $0).doubleValue } ?? 0,
+                                rate: suggestion.rate.map { NSDecimalNumber(decimal: $0).doubleValue },
+                                bg: suggestion.bg.map { NSDecimalNumber(decimal: $0).doubleValue }
+                            )
+                        }
+                        // Auto-config / re-derivation wrote knobs THIS cycle → persist the
+                        // provisioned settings (SettingsManager.save fires on assignment).
+                        // Gated on an actual applied knob — an all-kept/all-held outcome would
+                        // reassign a byte-identical settings file for nothing.
+                        if let autoConfig = boostResult.autoConfig,
+                           autoConfig.resolutions.contains(where: { $0.outcome == .applied })
+                        {
+                            self.settingsManager.settings = autoConfig.settings
+                            debug(.openAPS, "Boost[autoConfig] settings persisted — " + autoConfig.summary)
+                        }
+                        if let redrive = boostResult.redrive {
+                            self.settingsManager.settings = redrive.settings
+                            debug(.openAPS, "Boost[redrive] settings persisted — " + redrive.summary)
+                        }
+                        // Upstream boostV5_* RT fields — discrete numbers on the suggestion so
+                        // the NS devicestatus upload ships them graph-ready.
+                        if let t = boostResult.telemetry {
+                            suggestion.boostV5Score = t.score
+                            suggestion.boostV5State = t.state
+                            suggestion.boostV5Age = t.age
+                            suggestion.boostV5Budget = t.budget
+                            suggestion.boostV5ActionMult = t.actionMult
+                            suggestion.boostV5FinalDose = t.finalDose
+                            suggestion.boostV5VelocityFactor = t.velocityFactor
+                            suggestion.boostV5DoseAfterCaps = t.doseAfterCaps
+                            suggestion.boostV5DoseAfterBrakes = t.doseAfterBrakes
+                            suggestion.boostV5GateReduction = t.gateReduction
+                            suggestion.boostV5Active = t.active
+                            suggestion.boostV5CommittedCap = t.committedCap
+                            suggestion.boostV5ConfirmedCap = t.confirmedCap
+                            suggestion.boostV5ConfirmGate = t.confirmGate
+                            suggestion.boostV5ProspectiveShot = t.prospectiveShot
+                            suggestion.boostV5AggressionKnob = t.aggressionKnob
+                            suggestion.boostV5PostRescueWindow = t.postRescueWindow
+                            suggestion.boostV5FloorWouldAdd = t.floorWouldAdd
+                            suggestion.boostV5VelocityBudgetWouldAdd = t.velocityBudgetWouldAdd
+                            suggestion.boostV5CumulativeCapU = t.cumulativeCapU
+                            suggestion.boostV5SmbVol60Min = t.smbVol60Min
+                            suggestion.mlHypoRisk = t.mlHypoRisk.map { ($0 * 1000).rounded() / 1000 }
+                            suggestion.mlMealLikely = t.mlMealLikely.map { ($0 * 1000).rounded() / 1000 }
+                        }
+
                         // Update time
                         suggestion.timestamp = suggestion.deliverAt ?? clock
                         // Save
@@ -330,7 +635,7 @@ final class OpenAPS {
                     }
 
                     now = Date.now
-                    let (pumpProfile, profile) = await (
+                    let (pumpProfile, boostProfilePatchBase) = await (
                         self.makeProfile(
                             preferences: preferences,
                             pumpSettings: pumpSettings,
@@ -363,6 +668,11 @@ final class OpenAPS {
                     print(
                         "MakeProfiles: Time for profile and pumpProfile \(-1 * now.timeIntervalSinceNow) seconds, total: \(-1 * start.timeIntervalSinceNow)"
                     )
+
+                    // The Boost sensitivity stack no longer patches the STORED profile: the
+                    // rewrite happens per cycle in determineBasal (upstream's OapsProfileBoost
+                    // shape), so toggling the stack off never leaves a stale Boost ISF on disk.
+                    let profile = boostProfilePatchBase
 
                     now = Date.now
                     self.storage.save(pumpProfile, as: Settings.pumpProfile)

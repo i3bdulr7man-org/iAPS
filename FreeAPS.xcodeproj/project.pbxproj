@@ -7,6 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BBBB0000000000000000000D /* BoostMLModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000D /* BoostMLModels.swift */; };
+		BBBB0000000000000000000E /* boost in Resources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000E /* boost */; };
+		BBBB00000000000000000001 /* MealSignalScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000001 /* MealSignalScore.swift */; };
+		BBBB00000000000000000002 /* MealHypothesis.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000002 /* MealHypothesis.swift */; };
+		BBBB00000000000000000003 /* AggressionBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000003 /* AggressionBudget.swift */; };
+		BBBB00000000000000000004 /* SafetyGates.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000004 /* SafetyGates.swift */; };
+		BBBB00000000000000000005 /* DetermineBasalBoostV5.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000005 /* DetermineBasalBoostV5.swift */; };
+		BBBB00000000000000000006 /* BoostStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000006 /* BoostStateStore.swift */; };
+		BBBB00000000000000000007 /* BoostEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000007 /* BoostEngine.swift */; };
+		BBBB0000000000000000000F /* BoostRiskModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000F /* BoostRiskModel.swift */; };
+		BBBB0000000000000000012 /* BoostMealTimeLearner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000012 /* BoostMealTimeLearner.swift */; };
+		BBBB00000000000000000008 /* BoostDataFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000008 /* BoostDataFlow.swift */; };
+		BBBB00000000000000000009 /* BoostProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000009 /* BoostProvider.swift */; };
+		BBBB00000000000000000010 /* BoostAutoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA00000000000000000010 /* BoostAutoConfig.swift */; };
+		BBBB0000000000000000000A /* BoostStateModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000A /* BoostStateModel.swift */; };
+		BBBB0000000000000000000B /* BoostRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000B /* BoostRootView.swift */; };
+		BBBB0000000000000000000C /* BoostCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA0000000000000000000C /* BoostCoreTests.swift */; };
 		041D1E995A6AE92E9289DC49 /* BolusDataFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D1A7CA8C10C4403D4BBFA7 /* BolusDataFlow.swift */; };
 		0437CE46C12535A56504EC19 /* SnoozeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5822B15939E719628E9FF7C /* SnoozeRootView.swift */; };
 		056EB47E2B4C8B3D00CDE36E /* SystemSoundsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 056EB47D2B4C8B3D00CDE36E /* SystemSoundsManager.swift */; };
@@ -623,6 +640,23 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AAAA0000000000000000000D /* BoostMLModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostMLModels.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000000E /* boost */ = {isa = PBXFileReference; lastKnownFileType = folder; path = boost; sourceTree = "<group>"; };
+		AAAA00000000000000000001 /* MealSignalScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealSignalScore.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000002 /* MealHypothesis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealHypothesis.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000003 /* AggressionBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AggressionBudget.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000004 /* SafetyGates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyGates.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000005 /* DetermineBasalBoostV5.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetermineBasalBoostV5.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000006 /* BoostStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostStateStore.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000007 /* BoostEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostEngine.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000000F /* BoostRiskModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostRiskModel.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000012 /* BoostMealTimeLearner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostMealTimeLearner.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000008 /* BoostDataFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostDataFlow.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000009 /* BoostProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostProvider.swift; sourceTree = "<group>"; };
+		AAAA00000000000000000010 /* BoostAutoConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostAutoConfig.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000000A /* BoostStateModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostStateModel.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000000B /* BoostRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostRootView.swift; sourceTree = "<group>"; };
+		AAAA0000000000000000000C /* BoostCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoostCoreTests.swift; sourceTree = "<group>"; };
 		0274EE6439B1C3ED70730D41 /* PumpSettingsEditorDataFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PumpSettingsEditorDataFlow.swift; sourceTree = "<group>"; };
 		056EB47D2B4C8B3D00CDE36E /* SystemSoundsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSoundsManager.swift; sourceTree = "<group>"; };
 		0CA3E609094E064C99A4752C /* PreferencesEditorStateModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PreferencesEditorStateModel.swift; sourceTree = "<group>"; };
@@ -1322,6 +1356,45 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CCCC00000000000000000001 /* Boost */ = {
+			isa = PBXGroup;
+			children = (
+				AAAA00000000000000000001 /* MealSignalScore.swift */,
+				AAAA00000000000000000002 /* MealHypothesis.swift */,
+				AAAA00000000000000000003 /* AggressionBudget.swift */,
+				AAAA00000000000000000004 /* SafetyGates.swift */,
+				AAAA00000000000000000005 /* DetermineBasalBoostV5.swift */,
+				AAAA00000000000000000006 /* BoostStateStore.swift */,
+				AAAA00000000000000000010 /* BoostAutoConfig.swift */,
+				AAAA00000000000000000007 /* BoostEngine.swift */,
+				AAAA0000000000000000000F /* BoostRiskModel.swift */,
+				AAAA0000000000000000012 /* BoostMealTimeLearner.swift */,
+				AAAA0000000000000000000D /* BoostMLModels.swift */,
+			);
+			path = Boost;
+			sourceTree = "<group>";
+		};
+
+		CCCC00000000000000000002 /* Boost */ = {
+			isa = PBXGroup;
+			children = (
+				AAAA00000000000000000008 /* BoostDataFlow.swift */,
+				AAAA00000000000000000009 /* BoostProvider.swift */,
+				AAAA0000000000000000000A /* BoostStateModel.swift */,
+				CCCC00000000000000000003 /* View */,
+			);
+			path = Boost;
+			sourceTree = "<group>";
+		};
+
+		CCCC00000000000000000003 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				AAAA0000000000000000000B /* BoostRootView.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
 		0610F7D6D2EC00E3BA1569F0 /* ConfigEditor */ = {
 			isa = PBXGroup;
 			children = (
@@ -1700,6 +1773,7 @@
 				3811DE0425C9D32E00A708ED /* Base */,
 				C2C98283C436DB934D7E7994 /* Bolus */,
 				BD7DA9A32AE06DBA00601B20 /* BolusCalculatorConfig */,
+				CCCC00000000000000000002 /* Boost */,
 				F2EE83BC2E739A9300D7177E /* CalendarShare */,
 				E8176B120B55CE89F1591542 /* Calibrations */,
 				F75CB57ED6971B46F8756083 /* CGM */,
@@ -1934,6 +2008,7 @@
 				3811DEC725C9DA7300A708ED /* FreeAPS.entitlements */,
 				388E596425AD948E0019842D /* Info.plist */,
 				388E596E25AD96040019842D /* javascript */,
+				AAAA0000000000000000000E /* boost */,
 				388E597125AD9CF10019842D /* json */,
 				F29E5E522EE4939A00D2CBC0 /* ai */,
 			);
@@ -1966,6 +2041,7 @@
 			isa = PBXGroup;
 			children = (
 				3811DF0F25CAAAE200A708ED /* APSManager.swift */,
+				CCCC00000000000000000001 /* Boost */,
 				38BF021E25E7F0DE00579895 /* DeviceDataManager.swift */,
 				38A43597262E0E4900E80935 /* FetchAnnouncementsManager.swift */,
 				38192E06261BA9960094D973 /* FetchTreatmentsManager.swift */,
@@ -2436,6 +2512,7 @@
 			children = (
 				38FCF3F125E9028E0078B0D1 /* Info.plist */,
 				38FCF3F825E902C20078B0D1 /* FileStorageTests.swift */,
+				AAAA0000000000000000000C /* BoostCoreTests.swift */,
 			);
 			path = FreeAPSTests;
 			sourceTree = "<group>";
@@ -3304,6 +3381,7 @@
 				1972ECF52DC25CC4002DD59B /* AppShortcuts.strings in Resources */,
 				F29E5E532EE493A400D2CBC0 /* ai in Resources */,
 				388E596F25AD96040019842D /* javascript in Resources */,
+				BBBB0000000000000000000E /* boost in Resources */,
 				B9CAAEFC2AE70836000F68BC /* branch.txt in Resources */,
 				1927C8E62744606D00347C69 /* InfoPlist.strings in Resources */,
 			);
@@ -3408,6 +3486,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				3811DE2325C9D48300A708ED /* MainDataFlow.swift in Sources */,
+				BBBB00000000000000000001 /* MealSignalScore.swift in Sources */,
+				BBBB00000000000000000002 /* MealHypothesis.swift in Sources */,
+				BBBB00000000000000000003 /* AggressionBudget.swift in Sources */,
+				BBBB00000000000000000004 /* SafetyGates.swift in Sources */,
+				BBBB00000000000000000005 /* DetermineBasalBoostV5.swift in Sources */,
+				BBBB00000000000000000006 /* BoostStateStore.swift in Sources */,
+				BBBB00000000000000000007 /* BoostEngine.swift in Sources */,
+				BBBB0000000000000000000F /* BoostRiskModel.swift in Sources */,
+				BBBB0000000000000000012 /* BoostMealTimeLearner.swift in Sources */,
+				BBBB0000000000000000000D /* BoostMLModels.swift in Sources */,
+				BBBB00000000000000000008 /* BoostDataFlow.swift in Sources */,
+				BBBB00000000000000000009 /* BoostProvider.swift in Sources */,
+				BBBB00000000000000000010 /* BoostAutoConfig.swift in Sources */,
+				BBBB0000000000000000000A /* BoostStateModel.swift in Sources */,
+				BBBB0000000000000000000B /* BoostRootView.swift in Sources */,
 				F2E8D14D2F09616A0097F482 /* TimePickerSheet.swift in Sources */,
 				3811DEEB25CA063400A708ED /* Persisted.swift in Sources */,
 				3811DEEB25CA063400A708ED /* Persisted.swift in Sources */,
@@ -3909,6 +4002,7 @@
 			files = (
 				056EB47F2B4C8B3D00CDE36E /* SystemSoundsManager.swift in Sources */,
 				38FCF3F925E902C20078B0D1 /* FileStorageTests.swift in Sources */,
+				BBBB0000000000000000000C /* BoostCoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4401,7 +4495,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "$(DEVELOPER_TEAM)";
 				INFOPLIST_FILE = FreeAPSTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4422,7 +4516,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "$(DEVELOPER_TEAM)";
 				INFOPLIST_FILE = FreeAPSTests/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

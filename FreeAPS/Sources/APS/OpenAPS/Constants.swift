@@ -70,6 +70,11 @@ extension OpenAPS {
         static let dynamicVariables = "monitor/dynamicVariables.json"
         static let alertHistory = "monitor/alerthistory.json"
         static let statistics = "monitor/statistics.json"
+        static let boostState = "monitor/boost_state.json"
+        static let boostAux = "monitor/boost_aux.json"
+        // Legacy decision-history ring — read ONCE by CoreDataStorage.migrateBoostLogRingIfNeeded,
+        // then removed; new entries go to the BoostDecision CoreData entity.
+        static let boostLog = "monitor/boost_log.json"
     }
 
     enum Enact {

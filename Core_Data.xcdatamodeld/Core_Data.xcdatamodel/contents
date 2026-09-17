@@ -39,6 +39,20 @@
         <attribute name="variableKetoProtect" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <relationship name="overrides" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Override" inverseName="autoISF" inverseEntity="Override"/>
     </entity>
+    <entity name="BoostDecision" representedClassName="BoostDecision" syncable="YES" codeGenerationType="class">
+        <attribute name="bg" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="budget" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="dose" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="gates" optional="YES" attributeType="String"/>
+        <attribute name="mult" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="rate" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="risk" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="score" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="state" optional="YES" attributeType="String"/>
+        <attribute name="tag" optional="YES" attributeType="String"/>
+        <attribute name="ts" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="vel" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+    </entity>
     <entity name="Fat" representedClassName="Fat" syncable="YES" codeGenerationType="class">
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="enteredBy" optional="YES" attributeType="String"/>
