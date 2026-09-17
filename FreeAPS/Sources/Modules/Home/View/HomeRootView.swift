@@ -22,6 +22,7 @@ extension Home {
         @State var showBolusActiveAlert = false
         @State var displayAutoHistory = false
         @State var displayDynamicHistory = false
+        @State var displayBoostHistory = false
         @State var displayAllNutrients = false
 
         let buttonFont = Font.custom("TimeButtonFont", size: 14)
@@ -830,6 +831,18 @@ extension Home {
             .offset(x: 130)
         }
 
+        /// Mirror of isfView on the LEFT: opens the Boost decision-history sheet.
+        /// Icon only — shown only while Boost is on (Shadow or Active).
+        private var boostView: some View {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(.indigo)
+                .font(.timeSettingFont)
+                .background(TimeEllipse(characters: 3))
+                .onTapGesture { displayBoostHistory.toggle() }
+                .offset(x: -130)
+        }
+
         private var mealIntervalPicker: some View {
             HStack(spacing: 10) {
                 ForEach([DateFilter.today, DateFilter.day, DateFilter.week, DateFilter.month]) { interval in
@@ -1187,6 +1200,7 @@ extension Home {
                                 // Adjust hours visible (X-Axis) and ratio display
                                 timeSetting
                                     .overlay { isfView }
+                                    .overlay { if state.boostEnabled { boostView } }
                                 // TIR Chart
                                 if !state.data.glucose.isEmpty {
                                     preview.padding(.top, 15)
@@ -1288,6 +1302,10 @@ extension Home {
             }
             .sheet(isPresented: $displayDynamicHistory) {
                 DynamicHistoryView(units: state.data.units)
+                    .environment(\.colorScheme, colorScheme)
+            }
+            .sheet(isPresented: $displayBoostHistory) {
+                BoostHistoryView(units: state.data.units)
                     .environment(\.colorScheme, colorScheme)
             }
             .popup(isPresented: state.isStatusPopupPresented, alignment: .bottom, direction: .bottom) {

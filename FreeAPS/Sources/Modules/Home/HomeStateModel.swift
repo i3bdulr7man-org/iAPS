@@ -76,6 +76,7 @@ extension Home {
         @Published var maxIOB: Decimal = 0
         @Published var maxCOB: Decimal = 0
         @Published var autoisf = false
+        @Published var boostEnabled = false
         @Published var displayExpiration = false
         @Published var displaySAGE = true
         @Published var sensorDays: Double = 10
@@ -221,6 +222,7 @@ extension Home {
             maxIOB = settingsManager.preferences.maxIOB
             maxCOB = settingsManager.preferences.maxCOB
             autoisf = settingsManager.settings.autoisfEffective
+            boostEnabled = settingsManager.settings.boostMode != .off
             hours = settingsManager.settings.hours
             displayExpiration = settingsManager.settings.displayExpiration
             displaySAGE = settingsManager.settings.displaySAGE
@@ -814,6 +816,7 @@ extension Home.StateModel:
         maxIOB = settingsManager.preferences.maxIOB
         maxCOB = settingsManager.preferences.maxCOB
         autoisf = settingsManager.settings.autoisfEffective
+        boostEnabled = settingsManager.settings.boostMode != .off
         hours = settingsManager.settings.hours
         displayExpiration = settingsManager.settings.displayExpiration
         displaySAGE = settingsManager.settings.displaySAGE

@@ -92,6 +92,7 @@ extension Settings {
                         Text("App Icons").navigationLink(to: .iconConfig, from: self)
                         Text("Auto ISF").navigationLink(to: .autoISF, from: self)
                         Text("Bolus Calculator").navigationLink(to: .bolusCalculatorConfig, from: self)
+                        Text("Boost V6 (Experimental)").navigationLink(to: .boost, from: self)
                         Text("Calendar").navigationLink(to: .calendar, from: self)
                         Text("Contact Image").navigationLink(to: .contactTrick, from: self)
                         Text("Dynamic ISF").navigationLink(to: .dynamicISF, from: self)

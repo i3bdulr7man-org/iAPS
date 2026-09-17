@@ -68,6 +68,46 @@ struct FreeAPSSettings: JSON, Equatable {
     var timeSettings: Bool = true
     var disable15MinTrend: Bool = false
     var hidePredictions: Bool = false
+    // Boost V6 (experimental SMB engine port from tim2000s/Boost-in-AAPS_3.4).
+    // Default off — strictly opt-in. shadow = telemetry only, active = may drive SMBs.
+    var boostMode: BoostMode = .off
+    var boostAggression: Decimal = 1.0 // [0.7, 1.6] — scales the CONFIRMED catch-up only
+    var boostHypoCaution: Decimal = 1.0 // [1.0, 2.0] — deepens the hypo-risk backoff
+    var boostSensitivity: Decimal = 1.0 // [0.8, 1.2] — overall per-cycle budget scale
+    var boostConfirmedCapU: Decimal = 2.5 // max single CONFIRMED commit-shot, U
+    var boostCommittedCapU: Decimal = 0.5 // max per-cycle COMMITTED hold, U
+    // Min-guard hard-gate threshold (mg/dL). Upstream reads the ApsLgsThreshold PREFERENCE
+    // (default 65 — 80 is only V5's fallback when the value is absent); range 60–100.
+    var boostLgsThresholdMgdl: Decimal = 65
+    // Rolling-60-min cumulative SMB cap (U) — upstream ApsBoostCumulativeSmbCap60Min:
+    // 0–10, factory default 10 (deliberately non-binding), 0 disables.
+    var boostCumulativeCapU: Decimal = 10
+    // Boost's own IOB ceiling (U) — upstream ApsBoostMaxIob: 0.1–12, default 1.0; V6's hard
+    // headroom clamp is min(this, the system maxIOB).
+    var boostMaxIobU: Decimal = 1.0
+    var boostFastCarbConfirm: Bool = true // single-cycle confirm on sharp+accel+score rises
+    var boostAggressiveEarlyConfirm: Bool = false // opt-in age −2 early confirm
+    // Upstream Advanced toggles (BooleanKey/DoubleKey defaults preserved: OFF / 0.0) — the
+    // floors additionally run behind the fail-closed trailing-14d TBR hypo gate in BoostEngine.
+    var boostComposedFloorActive: Bool = false // composed brake-floor (insulin-ADDING; upstream default OFF)
+    var boostVelocityBudgetActive: Bool = false // budget≈0 high-tail floor (upstream default OFF)
+    var boostPrimerCapU: Decimal = 0.0 // V1-acceleration primer cap, U — 0 = primer off (upstream default)
+    var boostPrimerUseTempBasal: Bool = false // false = bolus primer (upstream default), true = temp-basal primer
+    // Upstream ApsBoostV5PrimerBolusMode — the USER override of the primer delivery route.
+    // true forces the bolus primer even when auto-config recommends the retractable
+    // temp-basal ("the user override always wins; auto-config may never make a setting
+    // unreachable" — upstream 2026-07-30 rule).
+    var boostPrimerForceBolus: Bool = false
+    // V6 anticipatory pre-meal low target (upstream 2026-06-15): learned habitual meal times
+    // (from fresh CONFIRMED commits) lower the target for a lead window before a habitual
+    // meal so insulinReq is already elevated when carbs land. LOWER-ONLY, shadow-first:
+    // default OFF logs "WOULD apply" for validation with no dosing change.
+    var boostPreMealTarget: Bool = false
+    // Pre-meal target value (mg/dL) — upstream ApsBoostV6PreMealTargetMgdl (72, 65–90).
+    var boostPreMealTargetMgdl: Decimal = 72
+    // Window OPENS this many minutes before the learned meal; CLOSES 45 min before it
+    // (upstream ApsBoostV6PreMealLeadMin: 60, 30–90).
+    var boostPreMealLeadMin: Decimal = 60
     // Sounds
     var hypoSound: String = "Default"
     var hyperSound: String = "Default"
@@ -217,6 +257,78 @@ extension FreeAPSSettings: Decodable {
 
         if let hidePredictions = try? container.decode(Bool.self, forKey: .hidePredictions) {
             settings.hidePredictions = hidePredictions
+        }
+
+        if let boostMode = try? container.decode(BoostMode.self, forKey: .boostMode) {
+            settings.boostMode = boostMode
+        }
+
+        if let boostAggression = try? container.decode(Decimal.self, forKey: .boostAggression) {
+            settings.boostAggression = boostAggression
+        }
+
+        if let boostHypoCaution = try? container.decode(Decimal.self, forKey: .boostHypoCaution) {
+            settings.boostHypoCaution = boostHypoCaution
+        }
+
+        if let boostSensitivity = try? container.decode(Decimal.self, forKey: .boostSensitivity) {
+            settings.boostSensitivity = boostSensitivity
+        }
+
+        if let boostConfirmedCapU = try? container.decode(Decimal.self, forKey: .boostConfirmedCapU) {
+            settings.boostConfirmedCapU = boostConfirmedCapU
+        }
+
+        if let boostCommittedCapU = try? container.decode(Decimal.self, forKey: .boostCommittedCapU) {
+            settings.boostCommittedCapU = boostCommittedCapU
+        }
+
+        if let boostLgsThresholdMgdl = try? container.decode(Decimal.self, forKey: .boostLgsThresholdMgdl) {
+            settings.boostLgsThresholdMgdl = boostLgsThresholdMgdl
+        }
+
+        if let boostCumulativeCapU = try? container.decode(Decimal.self, forKey: .boostCumulativeCapU) {
+            settings.boostCumulativeCapU = boostCumulativeCapU
+        }
+
+        if let boostMaxIobU = try? container.decode(Decimal.self, forKey: .boostMaxIobU) {
+            settings.boostMaxIobU = boostMaxIobU
+        }
+
+        if let boostFastCarbConfirm = try? container.decode(Bool.self, forKey: .boostFastCarbConfirm) {
+            settings.boostFastCarbConfirm = boostFastCarbConfirm
+        }
+
+        if let boostAggressiveEarlyConfirm = try? container.decode(Bool.self, forKey: .boostAggressiveEarlyConfirm) {
+            settings.boostAggressiveEarlyConfirm = boostAggressiveEarlyConfirm
+        }
+        if let boostComposedFloorActive = try? container.decode(Bool.self, forKey: .boostComposedFloorActive) {
+            settings.boostComposedFloorActive = boostComposedFloorActive
+        }
+        if let boostVelocityBudgetActive = try? container.decode(Bool.self, forKey: .boostVelocityBudgetActive) {
+            settings.boostVelocityBudgetActive = boostVelocityBudgetActive
+        }
+        if let boostPrimerCapU = try? container.decode(Decimal.self, forKey: .boostPrimerCapU) {
+            settings.boostPrimerCapU = boostPrimerCapU
+        }
+        if let boostPrimerUseTempBasal = try? container.decode(Bool.self, forKey: .boostPrimerUseTempBasal) {
+            settings.boostPrimerUseTempBasal = boostPrimerUseTempBasal
+        }
+
+        if let boostPrimerForceBolus = try? container.decode(Bool.self, forKey: .boostPrimerForceBolus) {
+            settings.boostPrimerForceBolus = boostPrimerForceBolus
+        }
+
+        if let boostPreMealTarget = try? container.decode(Bool.self, forKey: .boostPreMealTarget) {
+            settings.boostPreMealTarget = boostPreMealTarget
+        }
+
+        if let boostPreMealTargetMgdl = try? container.decode(Decimal.self, forKey: .boostPreMealTargetMgdl) {
+            settings.boostPreMealTargetMgdl = boostPreMealTargetMgdl
+        }
+
+        if let boostPreMealLeadMin = try? container.decode(Decimal.self, forKey: .boostPreMealLeadMin) {
+            settings.boostPreMealLeadMin = boostPreMealLeadMin
         }
 
         if let useCarbBars = try? container.decode(Bool.self, forKey: .useCarbBars) {

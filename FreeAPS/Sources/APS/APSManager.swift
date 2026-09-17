@@ -146,7 +146,8 @@ final class BaseAPSManager: APSManager, Injectable {
             glucoseStorage: glucoseStorage,
             nightscout: nightscout,
             pumpStorage: pumpHistoryStorage,
-            scriptExecutor: scriptExecutor
+            scriptExecutor: scriptExecutor,
+            settingsManager: settingsManager
         )
         subscribe()
         lastLoopDateSubject.send(lastLoopDate)

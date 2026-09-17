@@ -245,6 +245,106 @@ final class CoreDataStorage {
         return reasonArray
     }
 
+    // MARK: - Boost decision log
+
+    // CoreData-backed like Reasons — the Auto ISF / dy ISF histories survive app reinstalls
+    // from Xcode, which the previous Documents/monitor JSON ring did not (his device).
+
+    /// Append one per-cycle Boost decision (tag + structured columns), trimming the store to
+    /// the newest 400 entries (~33 h of 5-minute cycles) so it stays a bounded review window.
+    /// `enactedSmb` is what the pump actually received AFTER the seam guards (override /
+    /// post-rescue / rebound / cumulative caps) — the SIZED dose (finalDose) lives only in
+    /// the tag, per the "show what executed" rule.
+    func saveBoostDecision(
+        ts: Date, tag: String, telemetry: BoostTelemetry?, enactedSmb: Double, rate: Double?,
+        bg: Double?
+    ) {
+        coredataContext.performAndWait {
+            self.insertBoostDecision(
+                ts: ts, tag: tag, telemetry: telemetry, enactedSmb: enactedSmb, rate: rate, bg: bg
+            )
+            self.trimBoostDecisions()
+            do {
+                try self.coredataContext.save()
+            } catch {
+                debug(.openAPS, "BoostDecision save FAILED: \(error)")
+                print("BOOSTDEBUG saveBoostDecision error:", error)
+            }
+        }
+    }
+
+    func fetchBoostDecisions(interval: NSDate) -> [BoostDecision] {
+        var result = [BoostDecision]()
+        coredataContext.performAndWait {
+            let request = BoostDecision.fetchRequest() as NSFetchRequest<BoostDecision>
+            request.sortDescriptors = [NSSortDescriptor(key: "ts", ascending: false)]
+            request.predicate = NSPredicate(format: "ts > %@", interval)
+            try? result = self.coredataContext.fetch(request)
+        }
+        return result
+    }
+
+    /// One-time migration from the pre-CoreData ring file (monitor/boost_log.json): import
+    /// what is there, then remove the file so this never runs again.
+    static func migrateBoostLogRingIfNeeded(_ storage: FileStorage) {
+        guard let entries = storage.retrieve(OpenAPS.Monitor.boostLog, as: [BoostLogEntry].self),
+              !entries.isEmpty
+        else { return }
+        let coreData = CoreDataStorage()
+        coreData.coredataContext.performAndWait {
+            for e in entries {
+                coreData.insertBoostDecision(
+                    ts: e.ts, tag: e.tag, telemetry: nil,
+                    enactedSmb: e.dose ?? 0, rate: e.rate, bg: e.bg
+                )
+            }
+            coreData.trimBoostDecisions()
+            do {
+                try coreData.coredataContext.save()
+            } catch {
+                debug(.openAPS, "BoostDecision migration save FAILED: \(error)")
+            }
+        }
+        storage.remove(OpenAPS.Monitor.boostLog)
+        debug(.openAPS, "BoostDecisionLog: migrated \(entries.count) ring entries to CoreData")
+    }
+
+    private func insertBoostDecision(
+        ts: Date, tag: String, telemetry: BoostTelemetry?, enactedSmb: Double, rate: Double?,
+        bg: Double?
+    ) {
+        let entry = BoostDecision(context: coredataContext)
+        entry.ts = ts
+        entry.tag = tag
+        // SMB column = the ENACTED units (post-guard). The sized finalDose stays in the tag.
+        entry.dose = enactedSmb
+        if let t = telemetry {
+            entry.state = t.state
+            entry.score = t.score
+            entry.budget = t.budget
+            entry.mult = t.actionMult
+            entry.vel = t.velocityFactor
+            if let risk = t.mlHypoRisk { entry.risk = risk }
+            entry.gates = t.gateReduction
+        }
+        if let rate { entry.rate = rate }
+        if let bg { entry.bg = bg }
+    }
+
+    /// Keep only the newest 400 entries. Skipped entirely while the store is under the cap:
+    /// an offset-fetch with pending (unsaved) changes returns the just-inserted row regardless
+    /// of fetchOffset — deleting it silently swallowed EVERY cycle's row (the empty-table bug).
+    private func trimBoostDecisions() {
+        let countRequest = BoostDecision.fetchRequest()
+        countRequest.resultType = .countResultType
+        guard (try? coredataContext.count(for: countRequest)) ?? 0 > 400 else { return }
+        let request = BoostDecision.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "ts", ascending: false)]
+        request.fetchOffset = 400
+        request.includesPendingChanges = false // delete only already-saved overflow
+        (try? coredataContext.fetch(request))?.forEach(coredataContext.delete)
+    }
+
     func recentReason() -> Reasons? {
         var reasonArray = [Reasons]()
         coredataContext.performAndWait {

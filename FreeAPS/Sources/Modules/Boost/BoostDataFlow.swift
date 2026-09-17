@@ -1,0 +1,3 @@
+enum Boost {
+    enum Config {}
+}

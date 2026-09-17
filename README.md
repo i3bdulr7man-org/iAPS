@@ -1,5 +1,21 @@
 # iAPS: Your Experimental Artificial Pancreas System for iOS
 
+> ### ⚡ `boosts` branch — Boost V6 SMB dosing engine (port)
+>
+> This branch ports the **Boost V6** dosing core (upstream's `openAPSBoostV5` package) from
+> [tim2000s/Boost-in-AAPS_3.4](https://github.com/tim2000s/Boost-in-AAPS_3.4), **`dev` branch**,
+> into iAPS as a Swift layer over the stock oref loop: a meal-hypothesis state machine
+> (IDLE → OBSERVING → CONFIRMED → COMMITTED → RECOVERING) that may replace SMB dosing on
+> held hypotheses, with per-cycle decision telemetry, auto-configured knobs, and a local
+> decision-history table (CoreData-backed, home-screen ⚡ button).
+>
+> **HIGHLY EXPERIMENTAL — do not use for therapy.** Default mode is OFF; run Shadow and
+> compare `wouldDose` against your real SMBs for days before even considering Active.
+> ISF authority stays with the host loop (Auto ISF / dy ISF / autosens / plain profile) —
+> Boost consumes `insulinReq` as computed. Not ported (by scope decision): the V1 base
+> engine, twin/accelMeal/plateau/boostV7 experiments, and the TDD-DynISF sensitivity stack.
+
+
 iAPS is an advanced artificial pancreas system for iOS, built upon the foundation of Ivan Valkou's original `freeaps.git` Swift repository and powered by the **OpenAPS Reference (Master 0.7.1)** algorithms. After thousands of commits and the addition of many unique features, the app has been rebranded as iAPS under the new organization, Artificial Pancreas. We also leverage numerous frameworks published by the **Loop community** to bring you this robust system.
 
 -----
