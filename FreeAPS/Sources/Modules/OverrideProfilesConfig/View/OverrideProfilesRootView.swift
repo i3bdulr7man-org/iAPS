@@ -762,6 +762,8 @@ extension OverrideProfilesConfig {
             let autoisfSettings = fetchedSettings.first(where: { $0.id == preset.id })
 
             let hasConsecutivePreset = preset.succeeding != nil
+            let succeedingName = hasConsecutivePreset ? consecutiveProfiles.first(where: { $0.id == preset.succeeding })?
+                .name : nil
 
             if name != "" {
                 VStack(alignment: .leading, spacing: 1) {
@@ -771,16 +773,13 @@ extension OverrideProfilesConfig {
                             Image("PreMealOverride").foregroundStyle(.green)
                         }
 
-                        if hasConsecutivePreset {
-                            if let succeeding = consecutiveProfiles.first(where: { $0.id == preset.succeeding }),
-                               let name = succeeding.name
-                            {
-                                Image(systemName: "plus").foregroundStyle(.blue)
-                                    .padding(.horizontal)
-                                Text(name)
-                            }
+                        if hasConsecutivePreset, let name = succeedingName {
+                            Image(systemName: "plus").foregroundStyle(.blue)
+                                .padding(.horizontal)
+                            Text(name)
 
                             Spacer()
+
                             Image(systemName: "person.2.fill")
                                 .symbolRenderingMode(.palette)
                                 .foregroundStyle(.blue, .purple)
@@ -804,7 +803,7 @@ extension OverrideProfilesConfig {
                         }
 
                         // Indicate a succeeding preset
-                        if hasConsecutivePreset {
+                        if hasConsecutivePreset, succeedingName != nil {
                             Text("...").foregroundStyle(.secondary)
                         }
                     }
