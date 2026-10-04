@@ -102,6 +102,7 @@ extension OpenAPS {
         static let uploadedPreferences = "upload/uploaded-preferences.json"
         static let uploadedSettings = "upload/uploaded-settings.json"
         static let uploadedManualGlucose = "upload/uploaded-manual-readings.json"
+        static let uploadedAutomationNotes = "upload/uploaded-automation-notes.json"
         static let notUploadedOverrides = "upload/not-uploaded-overrides.json"
         static let uploadedPumpSettings = "upload/uploaded-pump_settings.json"
         static let uploadedTempTargetsDatabase = "upload/uploaded-temptargets_database.json"

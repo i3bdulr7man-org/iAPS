@@ -91,6 +91,7 @@ extension Settings {
                     Section {
                         Text("App Icons").navigationLink(to: .iconConfig, from: self)
                         Text("Auto ISF").navigationLink(to: .autoISF, from: self)
+                        Text("Automations").navigationLink(to: .automationsConfig, from: self)
                         Text("Bolus Calculator").navigationLink(to: .bolusCalculatorConfig, from: self)
                         Text("Calendar").navigationLink(to: .calendar, from: self)
                         Text("Contact Image").navigationLink(to: .contactTrick, from: self)
