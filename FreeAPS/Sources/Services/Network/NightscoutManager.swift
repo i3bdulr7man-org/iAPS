@@ -24,6 +24,7 @@ protocol NightscoutManager {
     func deleteAllNSoverrrides()
     func deleteOverride()
     func editOverride(_ profile: String, _ duration_: Double, _ date: Date)
+    func uploadAutomationNote(_ note: String)
     func fetchVersion()
 }
 
@@ -749,6 +750,37 @@ final class BaseNightscoutManager: NightscoutManager, Injectable {
             )
             uploadTreatments([siteTreatment], fileToSave: OpenAPS.Nightscout.uploadedPodAge)
         }
+    }
+
+    /// Audit trail for the Automations engine: every fired automation is recorded as a
+    /// Nightscout note so behavior can be reviewed from anywhere.
+    func uploadAutomationNote(_ note: String) {
+        let treatment = NigtscoutTreatment(
+            duration: nil,
+            rawDuration: nil,
+            rawRate: nil,
+            absolute: nil,
+            rate: nil,
+            eventType: .nsNote,
+            createdAt: Date(),
+            enteredBy: NigtscoutTreatment.local,
+            bolus: nil,
+            insulin: nil,
+            notes: note,
+            carbs: nil,
+            fat: nil,
+            protein: nil,
+            foodType: nil,
+            targetTop: nil,
+            targetBottom: nil,
+            glucoseType: nil,
+            glucose: nil,
+            units: nil,
+            id: nil,
+            fpuID: nil,
+            creation_date: nil
+        )
+        uploadTreatments([treatment], fileToSave: OpenAPS.Nightscout.uploadedAutomationNotes)
     }
 
     func uploadProfileAndSettings(_ force: Bool) {
