@@ -157,6 +157,11 @@ struct FreeAPSSettings: JSON, Equatable {
     // 1-min loops
     var allowOneMinuteLoop: Bool = false // allow running loops every minute
     var allowOneMinuteGlucose: Bool = false // allow sending 1-minute readings to oref, even if loops are with 5-minute intervals
+    // Automations
+    var automatedSMBOff: Bool = false
+    var automatedSMBOffUntil: Double = 0
+    var automationProfilePercent: Decimal = 100
+    var automationProfilePercentUntil: Double = 0
     var ai: Bool = true
     var mealViewMicronutrients: Bool = false
     var nightTime = NightTimeConfiguration.default
@@ -775,6 +780,22 @@ extension FreeAPSSettings: Decodable {
         }
         if let allowOneMinuteGlucose = try? container.decode(Bool.self, forKey: .allowOneMinuteGlucose) {
             settings.allowOneMinuteGlucose = allowOneMinuteGlucose
+        }
+
+        if let automatedSMBOff = try? container.decode(Bool.self, forKey: .automatedSMBOff) {
+            settings.automatedSMBOff = automatedSMBOff
+        }
+
+        if let automatedSMBOffUntil = try? container.decode(Double.self, forKey: .automatedSMBOffUntil) {
+            settings.automatedSMBOffUntil = automatedSMBOffUntil
+        }
+
+        if let automationProfilePercent = try? container.decode(Decimal.self, forKey: .automationProfilePercent) {
+            settings.automationProfilePercent = automationProfilePercent
+        }
+
+        if let automationProfilePercentUntil = try? container.decode(Double.self, forKey: .automationProfilePercentUntil) {
+            settings.automationProfilePercentUntil = automationProfilePercentUntil
         }
 
         if let ai = try? container.decode(Bool.self, forKey: .ai) {

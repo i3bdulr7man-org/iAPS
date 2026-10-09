@@ -71,6 +71,7 @@ enum APSError: LocalizedError {
 
 final class BaseAPSManager: APSManager, Injectable {
     private let processQueue = DispatchQueue(label: "BaseAPSManager.processQueue")
+    private let resolver: Resolver
     @Injected() private var appCoordinator: AppCoordinator!
     @Injected() private var storage: FileStorage!
     @Injected() private var pumpHistoryStorage: PumpHistoryStorage!
@@ -97,6 +98,8 @@ final class BaseAPSManager: APSManager, Injectable {
     let coredataContext = CoreDataStack.shared.persistentContainer.newBackgroundContext()
 
     private var openAPS: OpenAPS!
+
+    private lazy var automationsEngine = AutomationsEngine(resolver: resolver)
 
     private var lifetime = Lifetime()
 
@@ -139,6 +142,7 @@ final class BaseAPSManager: APSManager, Injectable {
     }
 
     init(resolver: Resolver) {
+        self.resolver = resolver
         injectServices(resolver)
         debug(.apsManager, "BaseAPSManager created: \(ObjectIdentifier(self))")
         openAPS = OpenAPS(
@@ -374,6 +378,10 @@ final class BaseAPSManager: APSManager, Injectable {
         let temp = currentTemp(date: now)
         let temporary = temporaryData
         temporaryData.forBolusView.carbs = 0
+
+        automationsEngine.evaluate(
+            suggestion: storage.retrieve(OpenAPS.Enact.suggested, as: Suggestion.self)
+        )
 
         let mainPublisher = makeProfiles()
             .flatMap { _ in self.autosens() }
