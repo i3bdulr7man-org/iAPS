@@ -184,7 +184,6 @@ extension AutomationsConfig {
                     ForEach(state.conditions.indices, id: \.self) { index in
                         conditionView(index: index)
                     }
-                    .onDelete(perform: removeCondition)
 
                     Button {
                         state.conditions.append(AutomationCondition(metric: .glucose))
@@ -440,14 +439,37 @@ extension AutomationsConfig {
         // MARK: - Conditions
 
         @ViewBuilder private func conditionView(index: Int) -> some View {
-            VStack(alignment: .leading, spacing: 8) {
-                Picker("", selection: metricBinding(index: index)) {
-                    ForEach(state.availableMetrics, id: \.self) { metric in
-                        Text(metricLabel(for: metric)).tag(metric)
+            metricRow(index: index)
+                .listRowSeparator(.hidden)
+                .swipeActions {
+                    Button(role: .destructive) {
+                        removeCondition(at: IndexSet(integer: index))
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
-                .pickerStyle(.menu)
 
+            conditionDetailRow(index: index)
+                .swipeActions {
+                    Button(role: .destructive) {
+                        removeCondition(at: IndexSet(integer: index))
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+        }
+
+        private func metricRow(index: Int) -> some View {
+            Picker("", selection: metricBinding(index: index)) {
+                ForEach(state.availableMetrics, id: \.self) { metric in
+                    Text(metricLabel(for: metric)).tag(metric)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+
+        @ViewBuilder private func conditionDetailRow(index: Int) -> some View {
+            VStack(alignment: .leading, spacing: 8) {
                 switch state.conditions[index].metric {
                 case .autosens,
                      .cannulaAge,
