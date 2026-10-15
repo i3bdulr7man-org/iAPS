@@ -6,7 +6,9 @@ import Swinject
 import UIKit
 import UserNotifications
 
-protocol UserNotificationsManager {}
+protocol UserNotificationsManager {
+    func notifyAutomation(title: String, message: String, identifierSuffix: String?)
+}
 
 enum GlucoseSourceKey: String {
     case transmitterBattery
@@ -37,6 +39,7 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         case noLoopSecondNotification = "FreeAPS.noLoopSecondNotification"
         case bolusFailedNotification = "FreeAPS.bolusFailedNotification"
         case pumpNotification = "FreeAPS.pumpNotification"
+        case automationAlert = "FreeAPS.automationAlert"
     }
 
     @Injected() private var settingsManager: SettingsManager!
@@ -129,6 +132,24 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
             )
 
             self.addRequest(identifier: .carbsRequiredNotification, content: content, deleteOld: true)
+        }
+    }
+
+    func notifyAutomation(title: String, message: String, identifierSuffix: String? = nil) {
+        ensureCanSendNotification {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = message
+            if self.settingsManager.settings.useAlarmSound {
+                content.sound = .default
+            }
+
+            self.addRequest(
+                identifier: .automationAlert,
+                content: content,
+                deleteOld: true,
+                identifierSuffix: identifierSuffix
+            )
         }
     }
 
@@ -346,14 +367,16 @@ final class BaseUserNotificationsManager: NSObject, UserNotificationsManager, In
         identifier: Identifier,
         content: UNMutableNotificationContent,
         deleteOld: Bool = false,
-        trigger: UNNotificationTrigger? = nil
+        trigger: UNNotificationTrigger? = nil,
+        identifierSuffix: String? = nil
     ) {
-        let request = UNNotificationRequest(identifier: identifier.rawValue, content: content, trigger: trigger)
+        let requestIdentifier = identifier.rawValue + (identifierSuffix.map { ".\($0)" } ?? "")
+        let request = UNNotificationRequest(identifier: requestIdentifier, content: content, trigger: trigger)
 
         if deleteOld {
             DispatchQueue.main.async {
-                self.center.removeDeliveredNotifications(withIdentifiers: [identifier.rawValue])
-                self.center.removePendingNotificationRequests(withIdentifiers: [identifier.rawValue])
+                self.center.removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
+                self.center.removePendingNotificationRequests(withIdentifiers: [requestIdentifier])
             }
         }
 

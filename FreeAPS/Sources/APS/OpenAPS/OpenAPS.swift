@@ -319,7 +319,7 @@ final class OpenAPS {
                         dynamicVariables
                     ) = await (
                         self.tdd(preferencesData: preferencesData),
-                        self.dynamicVariables(preferencesData, freeapsData)
+                        self.dynamicVariables(preferencesData, settings: freeapsData)
                     )
                     print(
                         "Time for tdd and DynamicVariables \(-1 * now.timeIntervalSinceNow) seconds, total: \(-1 * start.timeIntervalSinceNow)"
@@ -579,13 +579,25 @@ final class OpenAPS {
         }
 
         // Display either Target or Override (where target is included).
+        let automationPercent = AutomationEvaluator.activeAutomationPercent(
+            percent: settings?.automationProfilePercent ?? 100,
+            until: settings?.automationProfilePercentUntil ?? 0,
+            now: Date()
+        )
+        let automationSMBOff = AutomationEvaluator.isAutomationSMBOff(
+            smbOff: settings?.automatedSMBOff ?? false,
+            until: settings?.automatedSMBOffUntil ?? 0,
+            now: Date()
+        )
         let targetGlucose = suggestion.targetBG
         if targetGlucose != nil, let override = override, override.enabled {
             var orString = ", Override: "
             if override.percentage != 100 {
                 orString += (formatter.string(from: override.percentage as NSNumber) ?? "")
+            } else if let autoPercent = automationPercent {
+                orString += (formatter.string(from: autoPercent as NSNumber) ?? "") + " (automation)"
             }
-            if override.smbIsOff {
+            if override.smbIsOff || automationSMBOff {
                 orString += ". SMBs off"
             }
             orString += ". Target \(targetGlucose ?? 0)"
@@ -595,7 +607,14 @@ final class OpenAPS {
             }
         } else if let target = targetGlucose {
             if let index = reasonString.firstIndex(of: ";") {
-                reasonString.insert(contentsOf: ", Target: \(target)", at: index)
+                var targetString = ", Target: \(target)"
+                if let autoPercent = automationPercent {
+                    targetString += ", \(autoPercent) % (automation)"
+                }
+                if automationSMBOff {
+                    targetString += ", SMBs off"
+                }
+                reasonString.insert(contentsOf: targetString, at: index)
             }
         }
 
@@ -869,7 +888,7 @@ final class OpenAPS {
         return tdd
     }
 
-    func dynamicVariables(_ preferences: Preferences?, _: FreeAPSSettings?) async -> DynamicVariables {
+    func dynamicVariables(_ preferences: Preferences?, settings: FreeAPSSettings?) async -> DynamicVariables {
         let result = coredataContext.performAndWait {
             var nightscoutOverrideEdit: (profile: String, duration: Double, date: Date)?
             let start = Date.now
@@ -1063,6 +1082,25 @@ final class OpenAPS {
                 duration = 0
                 overrideTarget = 0
                 disableSMBs = false
+            }
+
+            if AutomationEvaluator.isAutomationSMBOff(
+                smbOff: settings?.automatedSMBOff ?? false,
+                until: settings?.automatedSMBOffUntil ?? 0,
+                now: now
+            ) {
+                disableSMBs = true
+            }
+
+            if overridePercentage == 100,
+               let autoPercent = AutomationEvaluator.activeAutomationPercent(
+                   percent: settings?.automationProfilePercent ?? 100,
+                   until: settings?.automationProfilePercentUntil ?? 0,
+                   now: now
+               )
+            {
+                overridePercentage = autoPercent
+                useOverride = true
             }
 
             if temptargetActive {

@@ -55,6 +55,8 @@ struct FreeAPSSettings: JSON, Equatable {
     var useCalc: Bool = true
     var fattyMeals: Bool = false
     var fattyMealFactor: Decimal = 0.7
+    var fastMeals: Bool = false
+    var fastMealFactor: Decimal = 1
     var displayPredictions: Bool = true
     var useLiveActivity: Bool = false
     var liveActivityChart = false
@@ -155,6 +157,11 @@ struct FreeAPSSettings: JSON, Equatable {
     // 1-min loops
     var allowOneMinuteLoop: Bool = false // allow running loops every minute
     var allowOneMinuteGlucose: Bool = false // allow sending 1-minute readings to oref, even if loops are with 5-minute intervals
+    // Automations
+    var automatedSMBOff: Bool = false
+    var automatedSMBOffUntil: Double = 0
+    var automationProfilePercent: Decimal = 100
+    var automationProfilePercentUntil: Double = 0
     var ai: Bool = true
     var mealViewMicronutrients: Bool = false
     var nightTime = NightTimeConfiguration.default
@@ -285,6 +292,10 @@ extension FreeAPSSettings: Decodable {
             settings.fattyMeals = fattyMeals
         }
 
+        if let fastMeals = try? container.decode(Bool.self, forKey: .fastMeals) {
+            settings.fastMeals = fastMeals
+        }
+
         if let lowAlert = try? container.decode(Bool.self, forKey: .lowAlert) {
             settings.lowAlert = lowAlert
         }
@@ -311,6 +322,10 @@ extension FreeAPSSettings: Decodable {
 
         if let fattyMealFactor = try? container.decode(Decimal.self, forKey: .fattyMealFactor) {
             settings.fattyMealFactor = fattyMealFactor
+        }
+
+        if let fastMealFactor = try? container.decode(Decimal.self, forKey: .fastMealFactor) {
+            settings.fastMealFactor = fastMealFactor
         }
 
         if let overrideFactor = try? container.decode(Decimal.self, forKey: .overrideFactor) {
@@ -765,6 +780,22 @@ extension FreeAPSSettings: Decodable {
         }
         if let allowOneMinuteGlucose = try? container.decode(Bool.self, forKey: .allowOneMinuteGlucose) {
             settings.allowOneMinuteGlucose = allowOneMinuteGlucose
+        }
+
+        if let automatedSMBOff = try? container.decode(Bool.self, forKey: .automatedSMBOff) {
+            settings.automatedSMBOff = automatedSMBOff
+        }
+
+        if let automatedSMBOffUntil = try? container.decode(Double.self, forKey: .automatedSMBOffUntil) {
+            settings.automatedSMBOffUntil = automatedSMBOffUntil
+        }
+
+        if let automationProfilePercent = try? container.decode(Decimal.self, forKey: .automationProfilePercent) {
+            settings.automationProfilePercent = automationProfilePercent
+        }
+
+        if let automationProfilePercentUntil = try? container.decode(Double.self, forKey: .automationProfilePercentUntil) {
+            settings.automationProfilePercentUntil = automationProfilePercentUntil
         }
 
         if let ai = try? container.decode(Bool.self, forKey: .ai) {

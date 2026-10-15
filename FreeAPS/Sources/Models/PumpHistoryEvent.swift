@@ -68,6 +68,7 @@ enum EventType: String, JSON {
     case nsSiteChange = "Site Change"
     case nsBatteryChange = "Pump Battery Change"
     case nsAnnouncement = "Announcement"
+    case nsNote = "Note"
     case nsSensorChange = "Sensor Start"
     case capillaryGlucose = "BG Check"
     case nsExercise = "Exercise"
