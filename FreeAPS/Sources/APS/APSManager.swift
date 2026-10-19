@@ -140,6 +140,7 @@ final class BaseAPSManager: APSManager, Injectable {
 
     init(resolver: Resolver) {
         injectServices(resolver)
+        debug(.apsManager, "BaseAPSManager created: \(ObjectIdentifier(self))")
         openAPS = OpenAPS(
             storage: storage,
             glucoseStorage: glucoseStorage,
@@ -522,7 +523,7 @@ final class BaseAPSManager: APSManager, Injectable {
         debug(.apsManager, "Enact temp basal \(rate) - \(duration)")
 
         let roundedAmout = pump.roundToSupportedBasalRate(unitsPerHour: rate)
-        let adjusted = pump.roundToSupportedBasalRate(unitsPerHour: rate * concentration.concentration)
+        let adjusted = pump.roundToSupportedBasalRate(unitsPerHour: rate / concentration.concentration)
         pump.enactTempBasal(unitsPerHour: roundedAmout, for: duration) { error in
             if let error = error {
                 debug(.apsManager, "Temp Basal failed with error: \(error.localizedDescription)")
@@ -720,7 +721,7 @@ final class BaseAPSManager: APSManager, Injectable {
                     let presetName = storage.isPresetName()
                     let nsString = presetName != nil ? presetName : activeOveride.percentage.formatted()
 
-                    if let duration = storage.cancelProfile() {
+                    if let duration = storage.cancelProfile().duration {
                         nightscout.editOverride(nsString!, duration, activeOveride.date ?? Date.now)
                     }
                     announcementsStorage.storeAnnouncements([announcement], enacted: true)
@@ -729,25 +730,7 @@ final class BaseAPSManager: APSManager, Injectable {
                 return
             }
 
-            // Cancel eventual current active override first
-            if isActive {
-                if let duration = OverrideStorage().cancelProfile(), let last = lastActiveOveride {
-                    let presetName = storage.isPresetName()
-                    let nsString = presetName != nil ? presetName : last.percentage.formatted()
-                    nightscout.editOverride(nsString!, duration, last.date ?? Date())
-                }
-            }
-
-            // Activate the new override and uplad the new ovderride to NS. Some duplicate code now. Needs refactoring.
-            let preset = storage.fetchPreset(name)
-            guard let id = preset.id, let preset_ = preset.preset else { return }
-            storage.overrideFromPreset(preset_, id)
-            let currentActiveOveride = storage.fetchLatestOverride().first
-            nightscout.uploadOverride(
-                name,
-                Double(truncating: preset.preset?.duration ?? 0),
-                currentActiveOveride?.date ?? Date.now
-            )
+            guard storage.activatePresetAndUpload(named: name, nightscout: nightscout) != nil else { return }
             announcementsStorage.storeAnnouncements([announcement], enacted: true)
             debug(.apsManager, "Remote Override by Announcement succeeded.")
         }
@@ -1301,7 +1284,8 @@ final class BaseAPSManager: APSManager, Injectable {
                 ),
                 id: getIdentifier(),
                 dob: settings.birthDate,
-                sex: settings.sexSetting
+                sex: settings.sexSetting,
+                Memory: MemoryMetricsService.shared.snapshot(full: true)
             )
             storage.save(dailystat, as: file)
             nightscout.uploadStatistics(dailystat: dailystat)
@@ -1309,7 +1293,8 @@ final class BaseAPSManager: APSManager, Injectable {
             let json = BareMinimum(
                 id: getIdentifier(),
                 created_at: Date.now,
-                Build_Version: Bundle.main.releaseVersionNumber ?? "UnKnown", Branch: branch()
+                Build_Version: Bundle.main.releaseVersionNumber ?? "UnKnown", Branch: branch(),
+                Memory: MemoryMetricsService.shared.snapshot(full: false)
             )
             nightscout.uploadVersion(json: json)
         }
