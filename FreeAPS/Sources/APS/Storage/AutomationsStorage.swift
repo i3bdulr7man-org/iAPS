@@ -104,16 +104,6 @@ final class AutomationsStorage {
         }
     }
 
-    func fetchLogEntries() -> [AutomationsLog] {
-        var entries = [AutomationsLog]()
-        coredataContext.performAndWait {
-            let request = AutomationsLog.fetchRequest() as NSFetchRequest<AutomationsLog>
-            request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
-            try? entries = coredataContext.fetch(request)
-        }
-        return entries
-    }
-
     func clearLog() {
         coredataContext.performAndWait {
             let entries = (try? coredataContext.fetch(AutomationsLog.fetchRequest())) ?? []

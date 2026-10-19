@@ -1,3 +1,4 @@
+import CoreData
 @testable import FreeAPS
 import XCTest
 
@@ -678,19 +679,30 @@ class AutomationsEngineTests: XCTestCase {
 
     // MARK: - Automations log storage
 
+    private func fetchLogRows() -> [AutomationsLog] {
+        let context = CoreDataStack.shared.persistentContainer.viewContext
+        var entries = [AutomationsLog]()
+        context.performAndWait {
+            let request = AutomationsLog.fetchRequest() as NSFetchRequest<AutomationsLog>
+            request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+            try? entries = context.fetch(request)
+        }
+        return entries
+    }
+
     func testLogEntryFetchesNewestFirst() {
         let storage = AutomationsStorage()
         storage.clearLog()
         storage.logEntry(name: "First", detail: "tempTargetStart")
         usleep(2000)
         storage.logEntry(name: "Second", detail: "smbChange")
-        let entries = storage.fetchLogEntries()
+        let entries = fetchLogRows()
         XCTAssertEqual(entries.count, 2)
         XCTAssertEqual(entries.first?.name, "Second")
         XCTAssertEqual(entries.first?.detail, "smbChange")
         XCTAssertEqual(entries.last?.name, "First")
         storage.clearLog()
-        XCTAssertTrue(storage.fetchLogEntries().isEmpty)
+        XCTAssertTrue(fetchLogRows().isEmpty)
     }
 
     func testLogIsCappedToMaxEntries() {
@@ -700,11 +712,11 @@ class AutomationsEngineTests: XCTestCase {
         for index in 0 ..< total {
             storage.logEntry(name: "Automation \(index)", detail: "")
         }
-        let entries = storage.fetchLogEntries()
+        let entries = fetchLogRows()
         XCTAssertEqual(entries.count, AutomationsStorage.maxLogEntries)
         XCTAssertEqual(entries.first?.name, "Automation \(total - 1)")
         XCTAssertEqual(entries.last?.name, "Automation 5")
         storage.clearLog()
-        XCTAssertTrue(storage.fetchLogEntries().isEmpty)
+        XCTAssertTrue(fetchLogRows().isEmpty)
     }
 }
