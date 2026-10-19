@@ -26,6 +26,11 @@ extension AutomationsConfig {
             )
         ) var fetchedProfiles: FetchedResults<OverridePresets>
 
+        @FetchRequest(
+            entity: AutomationsLog.entity(),
+            sortDescriptors: [NSSortDescriptor(key: "date", ascending: false)]
+        ) var fetchedLog: FetchedResults<AutomationsLog>
+
         private var formatter: NumberFormatter {
             let formatter = NumberFormatter()
             formatter.numberStyle = .decimal
@@ -114,6 +119,45 @@ extension AutomationsConfig {
                     label: {
                         Text("Add Automation")
                     }
+                }
+
+                Section {
+                    if fetchedLog.isEmpty {
+                        Text("No automations have fired yet")
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(fetchedLog, id: \.self) { entry in
+                            logRow(entry)
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Log")
+                        Spacer()
+                        Button {
+                            state.clearLog()
+                        } label: {
+                            Text("Clear")
+                        }
+                        .disabled(fetchedLog.isEmpty)
+                    }
+                }
+            }
+        }
+
+        private func logRow(_ entry: AutomationsLog) -> some View {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(entry.name ?? "")
+                    Spacer()
+                    Text(entry.date ?? Date(), style: .relative)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                if let detail = entry.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
             }
         }

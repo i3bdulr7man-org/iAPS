@@ -102,6 +102,10 @@ extension AutomationsConfig {
                 try? coredataContext.save()
             }
         }
+
+        func clearLog() {
+            AutomationsStorage().clearLog()
+        }
     }
 }
 

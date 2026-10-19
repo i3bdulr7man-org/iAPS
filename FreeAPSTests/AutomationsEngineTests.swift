@@ -675,4 +675,36 @@ class AutomationsEngineTests: XCTestCase {
         XCTAssertEqual(decoded.automationProfilePercent, Decimal(130))
         XCTAssertEqual(decoded.automationProfilePercentUntil, 1_700_000_000)
     }
+
+    // MARK: - Automations log storage
+
+    func testLogEntryFetchesNewestFirst() {
+        let storage = AutomationsStorage()
+        storage.clearLog()
+        storage.logEntry(name: "First", detail: "tempTargetStart")
+        usleep(2000)
+        storage.logEntry(name: "Second", detail: "smbChange")
+        let entries = storage.fetchLogEntries()
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries.first?.name, "Second")
+        XCTAssertEqual(entries.first?.detail, "smbChange")
+        XCTAssertEqual(entries.last?.name, "First")
+        storage.clearLog()
+        XCTAssertTrue(storage.fetchLogEntries().isEmpty)
+    }
+
+    func testLogIsCappedToMaxEntries() {
+        let storage = AutomationsStorage()
+        storage.clearLog()
+        let total = AutomationsStorage.maxLogEntries + 5
+        for index in 0 ..< total {
+            storage.logEntry(name: "Automation \(index)", detail: "")
+        }
+        let entries = storage.fetchLogEntries()
+        XCTAssertEqual(entries.count, AutomationsStorage.maxLogEntries)
+        XCTAssertEqual(entries.first?.name, "Automation \(total - 1)")
+        XCTAssertEqual(entries.last?.name, "Automation 5")
+        storage.clearLog()
+        XCTAssertTrue(storage.fetchLogEntries().isEmpty)
+    }
 }
