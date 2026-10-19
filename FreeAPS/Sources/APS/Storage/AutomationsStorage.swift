@@ -77,4 +77,54 @@ final class AutomationsStorage {
         }
         return deleted
     }
+
+    // MARK: - Log
+
+    static let maxLogEntries = 200
+
+    func logEntry(name: String, detail: String) {
+        coredataContext.performAndWait {
+            let entry = AutomationsLog(context: coredataContext)
+            entry.date = Date()
+            entry.name = name
+            entry.detail = detail
+            do {
+                try coredataContext.save()
+            } catch {
+                warning(.service, "Automations: failed to save log entry", error: error)
+                return
+            }
+            pruneLog()
+            guard coredataContext.hasChanges else { return }
+            do {
+                try coredataContext.save()
+            } catch {
+                warning(.service, "Automations: failed to prune log", error: error)
+            }
+        }
+    }
+
+    func clearLog() {
+        coredataContext.performAndWait {
+            let entries = (try? coredataContext.fetch(AutomationsLog.fetchRequest())) ?? []
+            for entry in entries {
+                coredataContext.delete(entry)
+            }
+            do {
+                try coredataContext.save()
+            } catch {
+                warning(.service, "Automations: failed to clear log", error: error)
+            }
+        }
+    }
+
+    private func pruneLog() {
+        let request = AutomationsLog.fetchRequest() as NSFetchRequest<AutomationsLog>
+        request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+        request.fetchOffset = Self.maxLogEntries
+        let entries = (try? coredataContext.fetch(request)) ?? []
+        for entry in entries {
+            coredataContext.delete(entry)
+        }
+    }
 }

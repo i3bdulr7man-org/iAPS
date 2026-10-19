@@ -70,19 +70,22 @@ final class AutomationsEngine: Injectable {
 
             let saved = AutomationsStorage().updateTriggerState(id: id, lastTriggered: now)
             guard saved else {
-                notificationsManager.notifyAutomation(
-                    title: automationName,
+                notifyAndLogFailure(
+                    automationName: automationName,
                     message: NSLocalizedString(
                         "Automation state could not be saved; action skipped",
                         comment: "Automation failure"
                     ),
-                    identifierSuffix: id
+                    automationID: id
                 )
                 return false
             }
 
             debug(.apsManager, "Automations: firing automation \(id)")
             executeActions(executableActions, automationName: automationName, automationID: id)
+
+            let detail = AutomationsEngine.actionsSummary(actions: executableActions, skipped: skippedCount)
+            AutomationsStorage().logEntry(name: automationName, detail: detail)
 
             nightscout.uploadAutomationNote(
                 AutomationsEngine.auditMessage(
@@ -264,12 +267,17 @@ final class AutomationsEngine: Injectable {
         return id
     }
 
-    static func auditMessage(name: String, actions: [AutomationAction], skipped: Int = 0) -> String {
+    static func actionsSummary(actions: [AutomationAction], skipped: Int = 0) -> String {
         let kinds = actions.map(\.kind.rawValue).joined(separator: ", ")
         let suffix = skipped > 0 ? " (\(skipped) action\(skipped == 1 ? "" : "s") skipped: override active)" : ""
-        return kinds.isEmpty
+        return kinds.isEmpty ? "" : kinds + suffix
+    }
+
+    static func auditMessage(name: String, actions: [AutomationAction], skipped: Int = 0) -> String {
+        let summary = actionsSummary(actions: actions, skipped: skipped)
+        return summary.isEmpty
             ? "🤖 Automation '" + name + "' fired"
-            : "🤖 Automation '" + name + "' fired: " + kinds + suffix
+            : "🤖 Automation '" + name + "' fired: " + summary
     }
 
     static func delta(latest: Int, latestDate: Date, previous: Int?, previousDate: Date?) -> Decimal? {
@@ -295,6 +303,11 @@ final class AutomationsEngine: Injectable {
         for action in actions {
             executeAction(action, automationName: automationName, automationID: automationID)
         }
+    }
+
+    private func notifyAndLogFailure(automationName: String, message: String, automationID: String) {
+        notificationsManager.notifyAutomation(title: automationName, message: message, identifierSuffix: automationID)
+        AutomationsStorage().logEntry(name: automationName, detail: message)
     }
 
     private func executeAction(_ action: AutomationAction, automationName: String, automationID: String) {
@@ -326,10 +339,10 @@ final class AutomationsEngine: Injectable {
         guard let presetID = action.overridePresetID,
               let preset = OverrideStorage().fetchPreset(id: presetID)
         else {
-            notificationsManager.notifyAutomation(
-                title: automationName,
+            notifyAndLogFailure(
+                automationName: automationName,
                 message: NSLocalizedString("Automation failed: override preset not found", comment: "Automation failure"),
-                identifierSuffix: automationID
+                automationID: automationID
             )
             return
         }
@@ -339,24 +352,24 @@ final class AutomationsEngine: Injectable {
 
     private func startOverridePercent(_ action: AutomationAction, automationName: String, automationID: String) {
         guard let rawPercent = action.percentage else {
-            notificationsManager.notifyAutomation(
-                title: automationName,
+            notifyAndLogFailure(
+                automationName: automationName,
                 message: NSLocalizedString(
                     "Automation failed: override percentage is missing",
                     comment: "Automation failure"
                 ),
-                identifierSuffix: automationID
+                automationID: automationID
             )
             return
         }
         guard let duration = action.duration, duration > 0 else {
-            notificationsManager.notifyAutomation(
-                title: automationName,
+            notifyAndLogFailure(
+                automationName: automationName,
                 message: NSLocalizedString(
                     "Automation failed: override is missing duration",
                     comment: "Automation failure"
                 ),
-                identifierSuffix: automationID
+                automationID: automationID
             )
             return
         }
@@ -374,13 +387,13 @@ final class AutomationsEngine: Injectable {
         guard let smbEnabled = action.smbEnabled,
               let duration = action.duration, duration > 0
         else {
-            notificationsManager.notifyAutomation(
-                title: automationName,
+            notifyAndLogFailure(
+                automationName: automationName,
                 message: NSLocalizedString(
                     "Automation failed: SMB setting or duration is missing",
                     comment: "Automation failure"
                 ),
-                identifierSuffix: automationID
+                automationID: automationID
             )
             return
         }
@@ -419,13 +432,13 @@ final class AutomationsEngine: Injectable {
         guard let duration = action.duration, duration > 0,
               let target = action.target, target > 0
         else {
-            notificationsManager.notifyAutomation(
-                title: automationName,
+            notifyAndLogFailure(
+                automationName: automationName,
                 message: NSLocalizedString(
                     "Automation failed: temp target is missing duration or target",
                     comment: "Automation failure"
                 ),
-                identifierSuffix: automationID
+                automationID: automationID
             )
             return
         }

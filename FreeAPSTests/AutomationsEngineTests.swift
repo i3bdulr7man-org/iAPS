@@ -1,3 +1,4 @@
+import CoreData
 @testable import FreeAPS
 import XCTest
 
@@ -674,5 +675,48 @@ class AutomationsEngineTests: XCTestCase {
         let decoded = try JSONDecoder().decode(FreeAPSSettings.self, from: data)
         XCTAssertEqual(decoded.automationProfilePercent, Decimal(130))
         XCTAssertEqual(decoded.automationProfilePercentUntil, 1_700_000_000)
+    }
+
+    // MARK: - Automations log storage
+
+    private func fetchLogRows() -> [AutomationsLog] {
+        let context = CoreDataStack.shared.persistentContainer.viewContext
+        var entries = [AutomationsLog]()
+        context.performAndWait {
+            let request = AutomationsLog.fetchRequest() as NSFetchRequest<AutomationsLog>
+            request.sortDescriptors = [NSSortDescriptor(key: "date", ascending: false)]
+            try? entries = context.fetch(request)
+        }
+        return entries
+    }
+
+    func testLogEntryFetchesNewestFirst() {
+        let storage = AutomationsStorage()
+        storage.clearLog()
+        storage.logEntry(name: "First", detail: "tempTargetStart")
+        usleep(2000)
+        storage.logEntry(name: "Second", detail: "smbChange")
+        let entries = fetchLogRows()
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries.first?.name, "Second")
+        XCTAssertEqual(entries.first?.detail, "smbChange")
+        XCTAssertEqual(entries.last?.name, "First")
+        storage.clearLog()
+        XCTAssertTrue(fetchLogRows().isEmpty)
+    }
+
+    func testLogIsCappedToMaxEntries() {
+        let storage = AutomationsStorage()
+        storage.clearLog()
+        let total = AutomationsStorage.maxLogEntries + 5
+        for index in 0 ..< total {
+            storage.logEntry(name: "Automation \(index)", detail: "")
+        }
+        let entries = fetchLogRows()
+        XCTAssertEqual(entries.count, AutomationsStorage.maxLogEntries)
+        XCTAssertEqual(entries.first?.name, "Automation \(total - 1)")
+        XCTAssertEqual(entries.last?.name, "Automation 5")
+        storage.clearLog()
+        XCTAssertTrue(fetchLogRows().isEmpty)
     }
 }
