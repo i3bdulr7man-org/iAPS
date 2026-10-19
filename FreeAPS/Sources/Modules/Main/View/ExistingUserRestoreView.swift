@@ -64,13 +64,16 @@ struct ExistingUserRestoreView: View {
                 Text("Restore your settings")
                     .font(.largeTitle).bold()
                     .multilineTextAlignment(.center)
-                Text(model.usesLogin
-                    ? "Log in to your online backup account to restore your OpenAPS preferences and app settings."
-                    : "Enter the recovery token from your previous iAPS install to restore your OpenAPS preferences and app settings from your online backup.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                Text(
+                    model.usesLogin
+                        ? "Log in to your online backup account to restore your OpenAPS preferences and app settings."
+                        :
+                        "Enter the recovery token from your previous iAPS install to restore your OpenAPS preferences and app settings from your online backup."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
             }
 
             Picker("", selection: $model.usesLogin) {
@@ -172,9 +175,11 @@ struct ExistingUserRestoreView: View {
                 .foregroundStyle(Color.white)
             }
             .buttonStyle(.plain)
-            .disabled(model.state == .working
-                || model.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                || model.password.isEmpty)
+            .disabled(
+                model.state == .working
+                    || model.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    || model.password.isEmpty
+            )
             .padding(.horizontal)
         }
     }
@@ -251,6 +256,15 @@ extension ExistingUserRestoreView {
                 state = .failed(NSLocalizedString("Enter your recovery token.", comment: ""))
                 return
             }
+            // Tokens are device UUIDs. Anything else cannot match a backup, so don't make the
+            // round trip (and don't hand the server "t" or "login" to choke on).
+            guard UUID(uuidString: token) != nil else {
+                state = .failed(NSLocalizedString(
+                    "That isn't a recovery token. A token is 36 characters with dashes, like 1a2b3c4d-5e6f-…; copy it from your old phone under iAPS → Settings → Sharing.",
+                    comment: "Restore: the typed recovery token is not a UUID"
+                ))
+                return
+            }
             runRestore(token: token)
         }
 
@@ -291,7 +305,10 @@ extension ExistingUserRestoreView {
                     case .noDevice:
                         self.loginMessage = NSLocalizedString("No backup is linked to this account yet.", comment: "")
                     case .unreachable:
-                        self.loginMessage = NSLocalizedString("Couldn't reach the server. Check your connection and try again.", comment: "")
+                        self.loginMessage = NSLocalizedString(
+                            "Couldn't reach the server. Check your connection and try again.",
+                            comment: ""
+                        )
                     }
                 },
                 receiveValue: { [weak self] token in
@@ -463,10 +480,12 @@ extension ExistingUserRestoreView {
                     },
                     receiveValue: { [weak self] profileStore in
                         guard let self else { return }
-                        guard let profile = profileStore.store["default"] else { then(); return }
+                        guard let profile = profileStore.store["default"] else { then()
+                            return }
 
                         let d = ProfileScheduleDecomposition.decompose(profile, units: units)
-                        guard d.problems.isEmpty else { then(); return }
+                        guard d.problems.isEmpty else { then()
+                            return }
 
                         self.storage.save(d.basal, as: OpenAPS.Settings.basalProfile)
                         self.storage.save(d.carbRatios, as: OpenAPS.Settings.carbRatios)
