@@ -65,7 +65,21 @@ final class AutomationsEngine: Injectable {
                         automationPercent: context.automationPercent
                     )
             }
-            guard !executableActions.isEmpty else { return false }
+            guard !executableActions.isEmpty else {
+                // Conditions are met but an override or a timed automation percentage is
+                // active. Record the attempt (rate-limiting retries) and log why instead
+                // of failing silently.
+                if AutomationsStorage().updateTriggerState(id: id, lastTriggered: now) {
+                    AutomationsStorage().logEntry(
+                        name: automationName,
+                        detail: NSLocalizedString(
+                            "Skipped: an override or automation percentage is already active",
+                            comment: "Automation skip reason"
+                        )
+                    )
+                }
+                return false
+            }
             let skippedCount = actions.count - executableActions.count
 
             let saved = AutomationsStorage().updateTriggerState(id: id, lastTriggered: now)
@@ -152,7 +166,10 @@ final class AutomationsEngine: Injectable {
             insulinAgeDays: AutomationsEngine.daysSinceLastEvent(events: pumpEvents, type: .nsInsulinChange, now: now),
             pumpBatteryAgeDays: AutomationsEngine.daysSinceLastEvent(events: pumpEvents, type: .nsBatteryChange, now: now),
             sensorAgeHours: AutomationsEngine.hoursSinceLastEvent(events: pumpEvents, type: .nsSensorChange, now: now),
-            pumpLastConnectionMinutes: AutomationsEngine.minutesSinceLastPumpEvent(events: pumpEvents, now: now),
+            pumpLastConnectionMinutes: AutomationsEngine.pumpConnectionMinutes(
+                connection: storage.retrieve(OpenAPS.Monitor.pumpConnection, as: PumpConnection.self),
+                now: now
+            ),
             tempTarget: AutomationsEngine.activeTempTargetValue(tempTargets: tempTargetsStorage.recent(), now: now),
             overridePercent: AutomationsEngine.activeOverridePercent(
                 percentage: activeOverride?.percentage,
@@ -192,16 +209,17 @@ final class AutomationsEngine: Injectable {
         return Decimal(seconds) / 3600
     }
 
-    private static let pumpSideEventTypes: Set<EventType> = [
-        .bolus, .mealBolus, .correctionBolus, .snackBolus, .smb,
-        .tempBasal, .tempBasalDuration, .pumpSuspend, .pumpResume,
-        .pumpAlarm, .pumpBattery, .rewind, .prime
-    ]
-
-    static func minutesSinceLastPumpEvent(events: [PumpHistoryEvent], now: Date) -> Decimal? {
-        let pumpEvents = events.filter { pumpSideEventTypes.contains($0.type) }
-        guard let last = pumpEvents.max(by: { $0.timestamp < $1.timestamp }) else { return nil }
-        let seconds = max(0, now.timeIntervalSince(last.timestamp))
+    /// Minutes since the pump last proved reachable. Time the app spent suspended
+    /// in the background does not count: the reference point is the later of the
+    /// last successful pump communication and the start of the current awake app
+    /// session, so a wake-up never reports a stale connection as a lost pump.
+    static func pumpConnectionMinutes(connection: PumpConnection?, now: Date) -> Decimal? {
+        guard let connection else { return nil }
+        let reference = [connection.lastCommunicationAt, connection.awakeSince]
+            .compactMap { $0 }
+            .max()
+        guard let reference else { return nil }
+        let seconds = max(0, now.timeIntervalSince(reference))
         return Decimal(seconds) / 60
     }
 
