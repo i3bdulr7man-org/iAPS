@@ -431,32 +431,48 @@ class AutomationsEngineTests: XCTestCase {
         )
     }
 
-    // MARK: - minutesSinceLastPumpEvent
+    // MARK: - pumpConnectionMinutes
 
-    func testMinutesSinceLastPumpEventNilWithoutPumpEvents() {
-        let events = [
-            event(.journalCarbs, daysAgo: 0.003, id: "j1"),
-            event(.nsSensorChange, daysAgo: 2, id: "s1")
-        ]
-        XCTAssertNil(AutomationsEngine.minutesSinceLastPumpEvent(events: events, now: historyNow))
+    func testPumpConnectionMinutesNilWithoutRecord() {
+        XCTAssertNil(AutomationsEngine.pumpConnectionMinutes(connection: nil, now: historyNow))
     }
 
-    func testMinutesSinceLastPumpEventCountsRealPumpEvents() {
-        let events = [
-            event(.tempBasal, daysAgo: 0.010, id: "t1"),
-            event(.journalCarbs, daysAgo: 0.001, id: "j1")
-        ]
-        let result = AutomationsEngine.minutesSinceLastPumpEvent(events: events, now: historyNow) ?? -1
-        XCTAssertEqual(Double(truncating: result as NSDecimalNumber), 14.4, accuracy: 0.01)
+    func testPumpConnectionMinutesNilWithoutDates() {
+        XCTAssertNil(
+            AutomationsEngine.pumpConnectionMinutes(
+                connection: PumpConnection(lastCommunicationAt: nil, awakeSince: nil),
+                now: historyNow
+            )
+        )
     }
 
-    func testMinutesSinceLastPumpEventPicksNewest() {
-        let events = [
-            event(.bolus, daysAgo: 0.02, id: "b1"),
-            event(.prime, daysAgo: 0.005, id: "p1")
-        ]
-        let result = AutomationsEngine.minutesSinceLastPumpEvent(events: events, now: historyNow) ?? -1
-        XCTAssertEqual(Double(truncating: result as NSDecimalNumber), 7.2, accuracy: 0.01)
+    func testPumpConnectionMinutesCountsFromLastCommunication() {
+        let connection = PumpConnection(
+            lastCommunicationAt: historyNow.addingTimeInterval(-5 * 60),
+            awakeSince: historyNow.addingTimeInterval(-3600)
+        )
+        let result = AutomationsEngine.pumpConnectionMinutes(connection: connection, now: historyNow) ?? -1
+        XCTAssertEqual(Double(truncating: result as NSDecimalNumber), 5, accuracy: 0.01)
+    }
+
+    func testPumpConnectionMinutesIgnoresBackgroundSuspension() {
+        // The pump talked 3 hours ago, but the app woke up 10 minutes ago:
+        // the suspension must not be reported as a lost pump.
+        let connection = PumpConnection(
+            lastCommunicationAt: historyNow.addingTimeInterval(-3 * 3600),
+            awakeSince: historyNow.addingTimeInterval(-10 * 60)
+        )
+        let result = AutomationsEngine.pumpConnectionMinutes(connection: connection, now: historyNow) ?? -1
+        XCTAssertEqual(Double(truncating: result as NSDecimalNumber), 10, accuracy: 0.01)
+    }
+
+    func testPumpConnectionMinutesClampsFutureTimestampToZero() {
+        let connection = PumpConnection(
+            lastCommunicationAt: historyNow.addingTimeInterval(30),
+            awakeSince: nil
+        )
+        let result = AutomationsEngine.pumpConnectionMinutes(connection: connection, now: historyNow) ?? -1
+        XCTAssertEqual(Double(truncating: result as NSDecimalNumber), 0, accuracy: 0.01)
     }
 
     // MARK: - activeTempTargetValue

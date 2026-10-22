@@ -168,6 +168,13 @@ final class BaseAPSManager: APSManager, Injectable {
             .store(in: &lifetime)
         pumpManager?.addStatusObserver(self, queue: processQueue)
 
+        markAppAwake()
+        Foundation.NotificationCenter.default
+            .publisher(for: UIApplication.willEnterForegroundNotification)
+            .receive(on: processQueue)
+            .sink { [weak self] _ in self?.markAppAwake() }
+            .store(in: &lifetime)
+
         deviceDataManager.errorSubject
             .receive(on: processQueue)
             .map { APSError.pumpError($0) }
@@ -1474,6 +1481,7 @@ private extension PumpManager {
 
 extension BaseAPSManager: PumpManagerStatusObserver {
     func pumpManager(_: PumpManager, didUpdate status: PumpManagerStatus, oldStatus _: PumpManagerStatus) {
+        recordPumpCommunication()
         let percent = Int((status.pumpBatteryChargeRemaining ?? 1) * 100)
         let battery = Battery(
             percent: percent,
@@ -1483,6 +1491,26 @@ extension BaseAPSManager: PumpManagerStatusObserver {
         )
         storage.save(battery, as: OpenAPS.Monitor.battery)
         storage.save(status.pumpStatus, as: OpenAPS.Monitor.status)
+    }
+}
+
+extension BaseAPSManager {
+    // The pump manager reports status updates only after a successful round trip
+    // to the pump, so each update proves the pump is still reachable.
+    private func recordPumpCommunication() {
+        updatePumpConnection { $0.lastCommunicationAt = Date() }
+    }
+
+    private func markAppAwake() {
+        updatePumpConnection { $0.awakeSince = Date() }
+    }
+
+    private func updatePumpConnection(_ changes: (inout PumpConnection) -> Void) {
+        storage.transaction { storage in
+            var connection = storage.retrieve(OpenAPS.Monitor.pumpConnection, as: PumpConnection.self) ?? PumpConnection()
+            changes(&connection)
+            storage.save(connection, as: OpenAPS.Monitor.pumpConnection)
+        }
     }
 }
 

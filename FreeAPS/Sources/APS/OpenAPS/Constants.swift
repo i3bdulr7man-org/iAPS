@@ -66,6 +66,7 @@ extension OpenAPS {
         static let glucose = "monitor/glucose.json"
         static let iob = "monitor/iob.json"
         static let cgmState = "monitor/cgm-state.json"
+        static let pumpConnection = "monitor/pump-connection.json"
         static let podAge = "monitor/pod-age.json"
         static let dynamicVariables = "monitor/dynamicVariables.json"
         static let alertHistory = "monitor/alerthistory.json"
