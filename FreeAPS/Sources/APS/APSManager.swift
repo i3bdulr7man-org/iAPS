@@ -235,6 +235,7 @@ final class BaseAPSManager: APSManager, Injectable {
         }
 
         debug(.apsManager, "Starting loop with a delay of \(UIApplication.shared.backgroundTimeRemaining.rounded())")
+        FootprintLog.log("loop start")
 
         lastStartLoopDate = Date()
 
@@ -299,6 +300,7 @@ final class BaseAPSManager: APSManager, Injectable {
 
     // Loop exit point
     private func loopCompleted(error: Error? = nil, loopStatRecord: LoopStats) {
+        FootprintLog.log("loop end")
         appCoordinator.isLooping.send(false)
 
         if let apsError = error {
@@ -537,9 +539,9 @@ final class BaseAPSManager: APSManager, Injectable {
 
         debug(.apsManager, "Enact temp basal \(rate) - \(duration)")
 
-        let roundedAmout = pump.roundToSupportedBasalRate(unitsPerHour: rate)
-        let adjusted = pump.roundToSupportedBasalRate(unitsPerHour: rate / concentration.concentration)
-        pump.enactTempBasal(unitsPerHour: roundedAmout, for: duration) { error in
+        let concentration = self.concentration
+        let deviceRate = pump.roundToSupportedBasalRate(unitsPerHour: rate / concentration.concentration)
+        pump.enactTempBasal(unitsPerHour: deviceRate, for: duration) { error in
             if let error = error {
                 debug(.apsManager, "Temp Basal failed with error: \(error.localizedDescription)")
                 self.processError(APSError.pumpError(error))
@@ -547,7 +549,7 @@ final class BaseAPSManager: APSManager, Injectable {
                 debug(.apsManager, "Temp Basal succeeded")
                 let temp = TempBasal(
                     duration: Int(duration / 60),
-                    rate: Decimal(adjusted),
+                    rate: Decimal(deviceRate * concentration.concentration),
                     temp: .absolute,
                     timestamp: Date()
                 )
@@ -575,7 +577,10 @@ final class BaseAPSManager: APSManager, Injectable {
     }
 
     func autotune() -> AnyPublisher<Autotune?, Never> {
-        openAPS.autotune().eraseToAnyPublisher()
+        FootprintLog.log("autotune start")
+        return openAPS.autotune()
+            .handleEvents(receiveOutput: { _ in FootprintLog.log("autotune end") })
+            .eraseToAnyPublisher()
     }
 
     func enactAnnouncement(_ announcement: Announcement) {
@@ -1060,6 +1065,8 @@ final class BaseAPSManager: APSManager, Injectable {
             return
         }
 
+        FootprintLog.log("statistics start")
+
         if settings.uploadStats {
             let units = settings.units
             let preferences = settingsManager.preferences
@@ -1313,6 +1320,7 @@ final class BaseAPSManager: APSManager, Injectable {
             )
             nightscout.uploadVersion(json: json)
         }
+        FootprintLog.log("statistics end")
     }
 
     private func getIdentifier() -> String {
@@ -1325,13 +1333,14 @@ final class BaseAPSManager: APSManager, Injectable {
         return identfier
     }
 
+    /// Daily version check: refresh when the stored one is older than 23 h, or when there is
+    /// none yet (a fresh install used to wait for Settings to ask). fetchVersion allows one
+    /// attempt an hour, so this cannot repeat on every loop while the server is unreachable,
+    /// which the old "any loop in an even hour" gate did.
     private func versionCheack() {
-        if Date.now.hour % 2 == 0 {
-            if let last = CoreDataStorage().fetchVNr(),
-               (last.date ?? .distantFuture) < Date.now.addingTimeInterval(-23.hours.timeInterval)
-            {
-                nightscout.fetchVersion()
-            }
+        let last = CoreDataStorage().fetchVNr()
+        if (last?.date ?? .distantPast) < Date.now.addingTimeInterval(-23.hours.timeInterval) {
+            nightscout.fetchVersion()
         }
     }
 
@@ -1341,25 +1350,7 @@ final class BaseAPSManager: APSManager, Injectable {
     }
 
     private func branch() -> String {
-        var branch = "Unknown"
-        if let branchFileURL = Bundle.main.url(forResource: "branch", withExtension: "txt"),
-           let branchFileContent = try? String(contentsOf: branchFileURL)
-        {
-            let lines = branchFileContent.components(separatedBy: .newlines)
-            for line in lines {
-                let components = line.components(separatedBy: "=")
-                if components.count == 2 {
-                    let key = components[0].trimmingCharacters(in: .whitespaces)
-                    let value = components[1].trimmingCharacters(in: .whitespaces)
-
-                    if key == "BRANCH" {
-                        branch = value
-                        break
-                    }
-                }
-            }
-        }
-        return branch
+        Bundle.main.gitBranch ?? "Unknown"
     }
 
     private func loopStats(loopStatRecord: LoopStats, error: Error?) {
