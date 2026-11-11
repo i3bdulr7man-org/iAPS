@@ -47,6 +47,11 @@ final class AutomationsEngine: Injectable {
                 return false
             }
 
+            let windows = row.windowsJSON
+                .flatMap { $0.data(using: .utf8) }
+                .flatMap { try? decoder.decode([AutomationWindow].self, from: $0) }
+            guard AutomationEvaluator.windowActive(windows, context: context) else { return false }
+
             let nowMet = AutomationEvaluator.conditionsMet(
                 conditions,
                 requireAll: row.requiresAllConditions,

@@ -13,6 +13,7 @@ extension AutomationsConfig {
 
         @Published var requiresAll = true
         @Published var conditions: [AutomationCondition] = []
+        @Published var windows: [AutomationWindow] = []
         @Published var actions: [AutomationAction] = []
         @Published var autoRemove = false
         @Published var editingID: String?
@@ -40,6 +41,7 @@ extension AutomationsConfig {
             enabled = false
             requiresAll = true
             conditions = []
+            windows = []
             actions = [AutomationAction(kind: .notification)]
             autoRemove = false
         }
@@ -58,6 +60,8 @@ extension AutomationsConfig {
             } else {
                 conditions = []
             }
+
+            windows = AutomationsStorage.decodeWindows(row.windowsJSON)
 
             if let json = row.actionJSON, let decoded = AutomationActionList.decode(json) {
                 actions = decoded
@@ -90,6 +94,7 @@ extension AutomationsConfig {
                 if let conditionsData = try? encoder.encode(conditions) {
                     row.conditionsJSON = String(data: conditionsData, encoding: .utf8)
                 }
+                row.windowsJSON = windows.isEmpty ? nil : AutomationsStorage.encodeWindows(windows)
                 row.actionJSON = AutomationActionList.encode(actions)
 
                 try? coredataContext.save()

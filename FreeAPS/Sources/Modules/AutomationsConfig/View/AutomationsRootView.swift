@@ -219,6 +219,28 @@ extension AutomationsConfig {
                 } header: { Text("General") }
 
                 Section {
+                    ForEach(state.windows.indices, id: \.self) { index in
+                        windowEditor(index: index)
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    removeWindow(at: IndexSet(integer: index))
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                    }
+
+                    Button {
+                        state.windows.append(AutomationWindow())
+                    }
+                    label: {
+                        Text("Add Time Window")
+                    }
+                } header: { Text("Schedule") } footer: {
+                    Text("Runs only inside these time windows — any of them. Leave empty to run at any time.")
+                }
+
+                Section {
                     Picker("", selection: $state.requiresAll) {
                         Text("Match ANY (OR)").tag(false)
                         Text("Match ALL (AND)").tag(true)
@@ -695,13 +717,26 @@ extension AutomationsConfig {
         }
 
         @ViewBuilder private func weekdaySelector(index: Int) -> some View {
+            weekdayChips(selection: Binding<[Int]?>(
+                get: { state.conditions[index].weekdays },
+                set: { state.conditions[index].weekdays = $0 }
+            ))
+        }
+
+        @ViewBuilder private func weekdayChips(selection: Binding<[Int]?>) -> some View {
             let symbols = Calendar.current.veryShortWeekdaySymbols
             HStack(spacing: 8) {
                 ForEach(Array(symbols.enumerated()), id: \.offset) { pair in
                     let weekday = pair.offset + 1
-                    let isOn = state.conditions[index].weekdays?.contains(weekday) ?? false
+                    let isOn = selection.wrappedValue?.contains(weekday) ?? false
                     Button {
-                        toggleWeekday(index: index, weekday: weekday)
+                        var current = selection.wrappedValue ?? []
+                        if let existing = current.firstIndex(of: weekday) {
+                            current.remove(at: existing)
+                        } else {
+                            current.append(weekday)
+                        }
+                        selection.wrappedValue = current
                     } label: {
                         Text(pair.element)
                             .font(.caption)
@@ -715,14 +750,47 @@ extension AutomationsConfig {
             }
         }
 
-        private func toggleWeekday(index: Int, weekday: Int) {
-            var current = state.conditions[index].weekdays ?? []
-            if let existing = current.firstIndex(of: weekday) {
-                current.remove(at: existing)
-            } else {
-                current.append(weekday)
+        @ViewBuilder private func windowEditor(index: Int) -> some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    DatePicker(
+                        "Start",
+                        selection: windowTimeBinding(index: index, isStart: true),
+                        displayedComponents: .hourAndMinute
+                    )
+                    DatePicker(
+                        "End",
+                        selection: windowTimeBinding(index: index, isStart: false),
+                        displayedComponents: .hourAndMinute
+                    )
+                }
+                weekdayChips(selection: windowWeekdaysBinding(index: index))
             }
-            state.conditions[index].weekdays = current
+        }
+
+        private func windowWeekdaysBinding(index: Int) -> Binding<[Int]?> {
+            Binding<[Int]?>(
+                get: { state.windows[index].weekdays },
+                set: { state.windows[index].weekdays = $0 }
+            )
+        }
+
+        private func windowTimeBinding(index: Int, isStart: Bool) -> Binding<Date> {
+            Binding<Date>(
+                get: {
+                    let window = state.windows[index]
+                    let minutes = Int(truncating: (isStart ? window.start : window.end) as NSDecimalNumber)
+                    return dateFrom(minutes: minutes)
+                },
+                set: { newDate in
+                    let minutes = Decimal(minutes(from: newDate))
+                    if isStart {
+                        state.windows[index].start = minutes
+                    } else {
+                        state.windows[index].end = minutes
+                    }
+                }
+            )
         }
 
         private func metricBinding(index: Int) -> Binding<AutomationMetric> {
@@ -821,6 +889,10 @@ extension AutomationsConfig {
         private func summary(for row: Automations) -> String {
             var parts: [String] = []
 
+            if !AutomationsStorage.decodeWindows(row.windowsJSON).isEmpty {
+                parts.append(NSLocalizedString("Scheduled", comment: ""))
+            }
+
             if let json = row.conditionsJSON,
                let conditions = try? JSONDecoder().decode([AutomationCondition].self, from: Data(json.utf8))
             {
@@ -875,6 +947,10 @@ extension AutomationsConfig {
 
         private func removeCondition(at offsets: IndexSet) {
             state.conditions.remove(atOffsets: offsets)
+        }
+
+        private func removeWindow(at offsets: IndexSet) {
+            state.windows.remove(atOffsets: offsets)
         }
 
         private func removeAction(at offsets: IndexSet) {

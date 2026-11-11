@@ -27,7 +27,7 @@ enum AutomationMetric: String, Codable, CaseIterable {
     static func available(isPatchPump: Bool) -> [AutomationMetric] {
         var metrics: [AutomationMetric] = [
             .glucose, .delta, .cob, .iob, .direction, .timeRange, .time, .lastBolusAgo,
-            .pumpLastConnection, .reservoir, .cannulaAge, .sensorAge,
+            .reservoir, .cannulaAge, .sensorAge,
             .tempTarget, .tempTargetValue, .overridePercent, .overridePreset, .autosens
         ]
         if !isPatchPump {
@@ -100,6 +100,15 @@ struct AutomationCondition: Codable, Identifiable, Equatable {
     var directions: [String]?
     var weekdays: [Int]?
     var overridePresetIDs: [String]?
+}
+
+// MARK: - Activation windows
+
+struct AutomationWindow: Codable, Equatable, Identifiable {
+    var id = UUID()
+    var start: Decimal = 8 * 60
+    var end: Decimal = 12 * 60
+    var weekdays: [Int]? = []
 }
 
 // MARK: - Actions
@@ -325,6 +334,21 @@ enum AutomationEvaluator {
             return cs.allSatisfy { conditionMet($0, context: context) }
         } else {
             return cs.contains { conditionMet($0, context: context) }
+        }
+    }
+
+    static func windowActive(_ windows: [AutomationWindow]?, context: AutomationContext) -> Bool {
+        guard let windows, !windows.isEmpty else { return true }
+        return windows.contains { window in
+            if let weekdays = window.weekdays, !weekdays.isEmpty, !weekdays.contains(context.weekday) {
+                return false
+            }
+            let now = Decimal(context.minutesOfDay)
+            if window.start <= window.end {
+                return now >= window.start && now <= window.end
+            } else {
+                return now >= window.start || now <= window.end
+            }
         }
     }
 
