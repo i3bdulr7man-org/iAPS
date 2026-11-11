@@ -4118,6 +4118,9 @@ Enact a temp Basal or a temp target */
 "General" = "General";
 "Automation Name" = "Automation Name";
 "Emoji" = "Emoji";
+"Add Time Window" = "Add Time Window";
+"Scheduled" = "Scheduled";
+"Runs only inside these time windows — any of them. Leave empty to run at any time." = "Runs only inside these time windows — any of them. Leave empty to run at any time.";
 "Conditions" = "Conditions";
 "Match ALL (AND)" = "Match ALL (AND)";
 "Match ANY (OR)" = "Match ANY (OR)";

@@ -1124,7 +1124,131 @@ class AutomationEvaluatorTests: XCTestCase {
         XCTAssertTrue(metrics.contains(.insulinAge))
         XCTAssertTrue(metrics.contains(.pumpBatteryAge))
         XCTAssertTrue(metrics.contains(.pumpBattery))
-        XCTAssertEqual(metrics.count, AutomationMetric.allCases.count)
+        XCTAssertFalse(metrics.contains(.pumpLastConnection), "last pump connection hidden from the picker")
+        XCTAssertEqual(metrics.count, AutomationMetric.allCases.count - 1)
+    }
+
+    // MARK: - activation windows
+
+    func testWindowActiveNilWindowsRunsAnyTime() {
+        XCTAssertTrue(AutomationEvaluator.windowActive(nil, context: makeContext()))
+    }
+
+    func testWindowActiveEmptyWindowsRunsAnyTime() {
+        XCTAssertTrue(AutomationEvaluator.windowActive([], context: makeContext()))
+    }
+
+    func testWindowActiveInsideWindow() {
+        let window = AutomationWindow(start: 480, end: 720)
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 600)))
+    }
+
+    func testWindowActiveBeforeStartNotActive() {
+        let window = AutomationWindow(start: 480, end: 720)
+        XCTAssertFalse(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 479)))
+    }
+
+    func testWindowActiveAfterEndNotActive() {
+        let window = AutomationWindow(start: 480, end: 720)
+        XCTAssertFalse(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 721)))
+    }
+
+    func testWindowActiveBoundariesInclusive() {
+        let window = AutomationWindow(start: 480, end: 720)
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 480)))
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 720)))
+    }
+
+    func testWindowActiveFullDayWindowUntilMidnight() {
+        let window = AutomationWindow(start: 975, end: 1440)
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 975)))
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 1439)))
+        XCTAssertFalse(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 900)))
+    }
+
+    func testWindowActiveCrossingMidnight() {
+        let window = AutomationWindow(start: 1320, end: 360)
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 1380)))
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 60)))
+        XCTAssertFalse(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 720)))
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 1320)))
+        XCTAssertTrue(AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 360)))
+    }
+
+    func testWindowActiveNilWeekdaysMatchesAnyDay() {
+        let window = AutomationWindow(start: 480, end: 720, weekdays: nil)
+        for weekday in 1 ... 7 {
+            XCTAssertTrue(
+                AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 600, weekday: weekday))
+            )
+        }
+    }
+
+    func testWindowActiveWeekdayFilter() {
+        let window = AutomationWindow(start: 480, end: 720, weekdays: [2, 4, 6])
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 600, weekday: 4))
+        )
+        XCTAssertFalse(
+            AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 600, weekday: 5))
+        )
+        XCTAssertFalse(
+            AutomationEvaluator.windowActive([window], context: makeContext(minutesOfDay: 800, weekday: 4))
+        )
+    }
+
+    func testWindowActiveMultipleWindowsCombineWithOR() {
+        let morning = AutomationWindow(start: 480, end: 720)
+        let evening = AutomationWindow(start: 975, end: 1440)
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([morning, evening], context: makeContext(minutesOfDay: 600))
+        )
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([morning, evening], context: makeContext(minutesOfDay: 1000))
+        )
+        XCTAssertFalse(
+            AutomationEvaluator.windowActive([morning, evening], context: makeContext(minutesOfDay: 800))
+        )
+    }
+
+    func testWindowActiveDayScopedWindowsOnDifferentDays() {
+        let weekdays = AutomationWindow(start: 480, end: 720, weekdays: [1, 2, 3, 4, 7])
+        let evenings = AutomationWindow(start: 975, end: 1440)
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([weekdays, evenings], context: makeContext(minutesOfDay: 600, weekday: 3))
+        )
+        XCTAssertFalse(
+            AutomationEvaluator.windowActive([weekdays, evenings], context: makeContext(minutesOfDay: 840, weekday: 3))
+        )
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([weekdays, evenings], context: makeContext(minutesOfDay: 1035, weekday: 3))
+        )
+        XCTAssertFalse(
+            AutomationEvaluator.windowActive([weekdays, evenings], context: makeContext(minutesOfDay: 600, weekday: 6))
+        )
+        XCTAssertTrue(
+            AutomationEvaluator.windowActive([weekdays, evenings], context: makeContext(minutesOfDay: 1035, weekday: 6))
+        )
+    }
+
+    func testWindowCodableRoundTrip() throws {
+        let windows = [
+            AutomationWindow(start: 480, end: 720, weekdays: [1, 7]),
+            AutomationWindow(start: 1320, end: 360)
+        ]
+        let json = try JSONEncoder().encode(windows)
+        let decoded = try JSONDecoder().decode([AutomationWindow].self, from: json)
+        XCTAssertEqual(decoded, windows)
+    }
+
+    func testLegacyConditionsJSONStillDecodesTimeRange() throws {
+        let json = """
+        [{"id":"12345678-1234-1234-1234-123456789ABC","metric":"timeRange","comparison":"greaterThan","value":480,"secondValue":720}]
+        """
+        let decoded = try JSONDecoder().decode([AutomationCondition].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.first?.metric, .timeRange)
+        XCTAssertEqual(decoded.first?.value, 480)
+        XCTAssertEqual(decoded.first?.secondValue, 720)
     }
 
     // MARK: - clampOverridePercent safety bounds

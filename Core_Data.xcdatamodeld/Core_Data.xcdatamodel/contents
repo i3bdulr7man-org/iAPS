@@ -156,6 +156,7 @@
         <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="requiresAllConditions" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
         <attribute name="conditionsJSON" optional="YES" attributeType="String"/>
+        <attribute name="windowsJSON" optional="YES" attributeType="String"/>
         <attribute name="actionJSON" optional="YES" attributeType="String"/>
         <attribute name="lastTriggered" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="emoji" optional="YES" attributeType="String"/>

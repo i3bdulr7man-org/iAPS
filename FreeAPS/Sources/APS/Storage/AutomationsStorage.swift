@@ -19,6 +19,18 @@ final class AutomationsStorage {
         return automationsArray
     }
 
+    static func decodeWindows(_ json: String?) -> [AutomationWindow] {
+        guard let json, let data = json.data(using: .utf8),
+              let windows = try? JSONDecoder().decode([AutomationWindow].self, from: data)
+        else { return [] }
+        return windows
+    }
+
+    static func encodeWindows(_ windows: [AutomationWindow]) -> String? {
+        guard let data = try? JSONEncoder().encode(windows) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
     static func assignSortOrders(_ rows: [Automations]) {
         for (index, row) in rows.enumerated() where row.sortOrder != index {
             row.sortOrder = Int32(index)
