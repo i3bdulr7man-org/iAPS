@@ -24,7 +24,8 @@ extension Home {
         @State var displayDynamicHistory = false
         @State var displayAllNutrients = false
         @State private var bottomActionBarHeight: CGFloat = 0
-        @State private var isBottomBarMinimized = false
+        @State private var isBottomBarHidden = false
+        @State private var homeScrollOffset: CGFloat = 0
 
         let buttonFont = Font.custom("TimeButtonFont", size: 14)
         let viewPadding: CGFloat = 5
@@ -34,6 +35,7 @@ extension Home {
         @Environment(\.colorScheme) var colorScheme
         @Environment(\.usesBottomBar) private var usesBottomBar
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
         @FetchRequest(
             entity: Override.entity(),
@@ -323,7 +325,7 @@ extension Home {
         var carbsAndInsulinView: some View {
             HStack {
                 // A temporary ugly(?) workaround for displaying last real IOB and COB computation
-                let opacity: CGFloat = colorScheme == .dark ? 0.2 : 0.65
+                let opacity: CGFloat = colorScheme == .dark ? 0.2 : 0.2
                 let materialOpacity: CGFloat = colorScheme == .dark ? 0.25 : 0.10
                 // Carbs on Board
                 HStack {
@@ -1053,6 +1055,15 @@ extension Home {
             ActivityIndicator(isAnimating: .constant(true), style: .large)
         }
 
+        private var shouldHideBottomBar: Bool {
+            // Show the bar at the top even while deceleration or rubber-banding finishes.
+            !state.dontHideButtons && isBottomBarHidden && homeScrollOffset < -1
+        }
+
+        private var bottomBarAnimation: Animation? {
+            reduceMotion ? nil : .easeInOut(duration: 0.2)
+        }
+
         private func mainContent(_ geo: GeometryProxy) -> some View {
             VStack(spacing: 0) {
                 headerView(geo)
@@ -1060,11 +1071,10 @@ extension Home {
                 ScrollView {
                     VStack {
                         chart(geo)
-                            .id("HomeScrollTop")
                         timeSetting
                             .overlay { isfView }
-                            // Make some room for bottomBar
-                            .padding(.bottom, usesBottomBar && !isBottomBarMinimized ? bottomActionBarHeight : 0)
+                            // Reserve toolbar clearance at the top, then consume it as the user scrolls.
+                            .padding(.bottom, usesBottomBar ? max(0, bottomActionBarHeight + min(0, homeScrollOffset)) : 0)
 
                         if !state.data.glucose.isEmpty {
                             preview.padding(.top, 15)
@@ -1087,26 +1097,19 @@ extension Home {
                     .onGeometryChange(for: CGFloat.self) { proxy in
                         proxy.frame(in: .named("HomeScrollView")).minY
                     } action: { scrollPosition in
+                        homeScrollOffset = scrollPosition
                         let showsGlucose = scrollPosition < -550 &&
                             (state.iobs > 0 || state.carbData > 0) && !state.skipGlucoseChart
                         if displayGlucose != showsGlucose {
-                            withAnimation(.easeOut(duration: showsGlucose ? 0.3 : 0.4)) {
+                            withAnimation(.easeOut(duration: showsGlucose ? 0.3 : 0.2)) {
                                 displayGlucose = showsGlucose
-                            }
-                        }
-
-                        // Separate collapse/expand thresholds prevent flickering near the top.
-                        let minimizesBar = scrollPosition < -80 ||
-                            (isBottomBarMinimized && scrollPosition <= -10)
-                        if isBottomBarMinimized != minimizesBar {
-                            withTransaction(Transaction(animation: reduceMotion ? nil : .easeInOut(duration: 0.5))) {
-                                isBottomBarMinimized = minimizesBar
                             }
                         }
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .coordinateSpace(name: "HomeScrollView")
+                .modifier(HomeScrollActivityModifier(isScrolling: $isBottomBarHidden, scrollOffset: homeScrollOffset))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -1126,7 +1129,10 @@ extension Home {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 15)
                                         .fill(.clear)
-                                        .glassEffectWhenAvailable(.clear, in: RoundedRectangle(cornerRadius: 15))
+                                        .glassEffectWhenAvailable(
+                                            reduceTransparency ? .regular : .clear,
+                                            in: RoundedRectangle(cornerRadius: 15)
+                                        )
                                         .frame(maxWidth: 320, maxHeight: 90)
                                     bolusProgressView(progress: progress, amount: amount)
                                 }
@@ -1301,24 +1307,22 @@ extension Home {
         }
 
         // Tab bar buttons
-        private func actionBarLayout<Content: View>(
+        @ViewBuilder private func actionBarLayout<Content: View>(
             for content: Content,
             isOverride: Bool,
             isTarget: Bool
         ) -> some View {
-            ScrollViewReader { scrollProxy in
-                if #available(iOS 27.1, *) {
-                    ToolbarEdgeActionBarLayout(
-                        content: content,
-                        verticalBar: { verticalActionBar(isOverride: isOverride, isTarget: isTarget) },
-                        bottomBar: { bottomActionBar(isOverride: isOverride, isTarget: isTarget, scrollProxy: scrollProxy) }
-                    )
-                } else {
-                    content
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            bottomActionBar(isOverride: isOverride, isTarget: isTarget, scrollProxy: scrollProxy)
-                        }
-                }
+            if #available(iOS 27.1, *) {
+                ToolbarEdgeActionBarLayout(
+                    content: content,
+                    verticalBar: { verticalActionBar(isOverride: isOverride, isTarget: isTarget) },
+                    bottomBar: { bottomActionBar(isOverride: isOverride, isTarget: isTarget) }
+                )
+            } else {
+                content
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        bottomActionBar(isOverride: isOverride, isTarget: isTarget)
+                    }
             }
         }
 
@@ -1333,62 +1337,31 @@ extension Home {
             .background(.bar, in: RoundedRectangle(cornerRadius: 16))
         }
 
-        private func bottomActionBar(isOverride: Bool, isTarget: Bool, scrollProxy: ScrollViewProxy) -> some View {
+        private func bottomActionBar(isOverride: Bool, isTarget: Bool) -> some View {
             HStack(spacing: 0) {
                 actionBarItems(isOverride: isOverride, isTarget: isTarget)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.plain)
             .padding(5)
-            .opacity(isBottomBarMinimized ? 0 : 1)
-            .scaleEffect(reduceMotion ? 1 : (isBottomBarMinimized ? 0.95 : 1))
-            .allowsHitTesting(!isBottomBarMinimized)
-            .accessibilityHidden(isBottomBarMinimized)
             .background {
-                GeometryReader { proxy in
-                    let shape = RoundedRectangle(cornerRadius: isBottomBarMinimized ? 22 : 16)
-                    shape
-                        .fill(.ultraThickMaterial)
-                        .overlay {
-                            shape.strokeBorder(
-                                colorScheme == .light ? Color.white : Color.black.opacity(0.8),
-                                lineWidth: colorScheme == .light ? 1 : 0.6
-                            )
-                        }
-                        .frame(
-                            width: isBottomBarMinimized ? 44 : proxy.size.width,
-                            height: isBottomBarMinimized ? 44 : proxy.size.height
+                let shape = RoundedRectangle(cornerRadius: 16)
+                shape
+                    .fill(.ultraThickMaterial)
+                    .overlay {
+                        shape.strokeBorder(
+                            colorScheme == .light ? Color.white : Color.black.opacity(0.8),
+                            lineWidth: colorScheme == .light ? 1 : 0.6
                         )
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                }
-                .allowsHitTesting(false)
-            }
-            .overlay {
-                Button {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.5)) {
-                        scrollProxy.scrollTo("HomeScrollTop", anchor: .top)
                     }
-                } label: {
-                    Image(systemName: "chevron.up")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .opacity(isBottomBarMinimized ? 1 : 0)
-                .allowsHitTesting(isBottomBarMinimized)
-                .accessibilityHidden(!isBottomBarMinimized)
-                .accessibilityLabel("Back to top")
-                .accessibilityHint("Shows the chart and expands the action bar.")
+                    .allowsHitTesting(false)
             }
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 0.5),
-                value: isBottomBarMinimized
-            )
+            .opacity(shouldHideBottomBar ? 0 : 1)
+            .allowsHitTesting(!shouldHideBottomBar)
+            .accessibilityHidden(shouldHideBottomBar)
+            .animation(bottomBarAnimation, value: shouldHideBottomBar)
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            // Measure the full layout.
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
@@ -1564,6 +1537,43 @@ extension Home {
 
             settingsTabItem()
                 .accessibilityLabel("Settings")
+        }
+    }
+}
+
+private struct HomeScrollActivityModifier: ViewModifier {
+    @Binding var isScrolling: Bool
+    let scrollOffset: CGFloat
+    @State private var scrollEndTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .onScrollPhaseChange { _, phase in
+                    // Programmatic scrolling must not hide the bar when returning to the top.
+                    isScrolling = phase == .interacting || phase == .decelerating
+                }
+                .onDisappear {
+                    isScrolling = false
+                }
+        } else {
+            // Earlier systems infer the end of scrolling from a pause in offset changes.
+            content
+                .onChange(of: scrollOffset) { _, _ in
+                    scrollEndTask?.cancel()
+                    isScrolling = true
+                    scrollEndTask = Task { @MainActor in
+                        do {
+                            try await Task.sleep(for: .milliseconds(180))
+                            isScrolling = false
+                        } catch {}
+                    }
+                }
+                .onDisappear {
+                    scrollEndTask?.cancel()
+                    scrollEndTask = nil
+                    isScrolling = false
+                }
         }
     }
 }
