@@ -23,6 +23,9 @@ extension Home {
         @State var displayAutoHistory = false
         @State var displayDynamicHistory = false
         @State var displayAllNutrients = false
+        @State private var bottomActionBarHeight: CGFloat = 0
+        @State private var isBottomBarHidden = false
+        @State private var homeScrollOffset: CGFloat = 0
 
         let buttonFont = Font.custom("TimeButtonFont", size: 14)
         let viewPadding: CGFloat = 5
@@ -30,6 +33,9 @@ extension Home {
         @Environment(\.managedObjectContext) var moc
         @Environment(\.sizeCategory) private var fontSize
         @Environment(\.colorScheme) var colorScheme
+        @Environment(\.usesBottomBar) private var usesBottomBar
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
         @FetchRequest(
             entity: Override.entity(),
@@ -301,7 +307,7 @@ extension Home {
         var carbsAndInsulinView: some View {
             HStack {
                 // A temporary ugly(?) workaround for displaying last real IOB and COB computation
-                let opacity: CGFloat = colorScheme == .dark ? 0.2 : 0.65
+                let opacity: CGFloat = colorScheme == .dark ? 0.2 : 0.2
                 let materialOpacity: CGFloat = colorScheme == .dark ? 0.25 : 0.10
                 // Carbs on Board
                 HStack {
@@ -1031,6 +1037,15 @@ extension Home {
             ActivityIndicator(isAnimating: .constant(true), style: .large)
         }
 
+        private var shouldHideBottomBar: Bool {
+            // Show the bar at the top even while deceleration or rubber-banding finishes.
+            !state.dontHideButtons && isBottomBarHidden && homeScrollOffset < -1
+        }
+
+        private var bottomBarAnimation: Animation? {
+            reduceMotion ? nil : .easeInOut(duration: 0.2)
+        }
+
         private func mainContent(_ geo: GeometryProxy) -> some View {
             VStack(spacing: 0) {
                 headerView(geo)
@@ -1040,6 +1055,8 @@ extension Home {
                         chart(geo)
                         timeSetting
                             .overlay { isfView }
+                            // Reserve toolbar clearance at the top, then consume it as the user scrolls.
+                            .padding(.bottom, usesBottomBar ? max(0, bottomActionBarHeight + min(0, homeScrollOffset)) : 0)
 
                         if !state.data.glucose.isEmpty {
                             preview.padding(.top, 15)
@@ -1059,25 +1076,22 @@ extension Home {
                         mealsView.padding(.bottom, 15)
                     }
                     .frame(maxWidth: .infinity)
-                    .background {
-                        GeometryReader { proxy in
-                            let scrollPosition = proxy.frame(in: .named("HomeScrollView")).minY
-                            let yThreshold: CGFloat = -550
-                            Color.clear
-                                .onChange(of: scrollPosition) {
-                                    if scrollPosition < yThreshold, state.iobs > 0 || state.carbData > 0,
-                                       !state.skipGlucoseChart
-                                    {
-                                        withAnimation(.easeOut(duration: 0.3)) { displayGlucose = true }
-                                    } else {
-                                        withAnimation(.easeOut(duration: 0.4)) { displayGlucose = false }
-                                    }
-                                }
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.frame(in: .named("HomeScrollView")).minY
+                    } action: { scrollPosition in
+                        homeScrollOffset = scrollPosition
+                        let showsGlucose = scrollPosition < -550 &&
+                            (state.iobs > 0 || state.carbData > 0) && !state.skipGlucoseChart
+                        if displayGlucose != showsGlucose {
+                            withAnimation(.easeOut(duration: showsGlucose ? 0.3 : 0.2)) {
+                                displayGlucose = showsGlucose
+                            }
                         }
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .coordinateSpace(name: "HomeScrollView")
+                .modifier(HomeScrollActivityModifier(isScrolling: $isBottomBarHidden, scrollOffset: homeScrollOffset))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -1097,12 +1111,15 @@ extension Home {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 15)
                                         .fill(.clear)
-                                        .glassEffectWhenAvailable(.clear, in: RoundedRectangle(cornerRadius: 15))
+                                        .glassEffectWhenAvailable(
+                                            reduceTransparency ? .regular : .clear,
+                                            in: RoundedRectangle(cornerRadius: 15)
+                                        )
                                         .frame(maxWidth: 320, maxHeight: 90)
                                     bolusProgressView(progress: progress, amount: amount)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .center)
-                                .offset(y: -100)
+                                .offset(y: -80)
                             }
                         },
                     isOverride: fetchedPercent.first?.enabled ?? false,
@@ -1299,28 +1316,50 @@ extension Home {
             .buttonStyle(.borderless)
             .padding(.horizontal, 8)
             .padding(.vertical, 10)
-            .background(.bar, in: Capsule())
+            .background(.bar, in: RoundedRectangle(cornerRadius: 16))
         }
 
         private func bottomActionBar(isOverride: Bool, isTarget: Bool) -> some View {
-            HStack(spacing: 20) {
+            HStack(spacing: 0) {
                 actionBarItems(isOverride: isOverride, isTarget: isTarget)
-                    .padding(8)
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 15)
-            .padding(.horizontal, 10)
-            .background(.ultraThinMaterial)
+            .buttonStyle(.plain)
+            .padding(5)
+            .background {
+                let shape = RoundedRectangle(cornerRadius: 16)
+                shape
+                    .fill(.ultraThickMaterial)
+                    .overlay {
+                        shape.strokeBorder(
+                            colorScheme == .light ? Color.white : Color.black.opacity(0.8),
+                            lineWidth: colorScheme == .light ? 1 : 0.6
+                        )
+                    }
+                    .allowsHitTesting(false)
+            }
+            .opacity(shouldHideBottomBar ? 0 : 1)
+            .allowsHitTesting(!shouldHideBottomBar)
+            .accessibilityHidden(shouldHideBottomBar)
+            .animation(bottomBarAnimation, value: shouldHideBottomBar)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                bottomActionBarHeight = height
+            }
         }
 
         private func carbTabItem() -> some View {
-            tabBarButton { showAddCarbs(mode: .meal) } icon: {
+            ToolbarEdgeAwareButton { showAddCarbs(mode: .meal) } icon: {
                 ZStack(alignment: .topTrailing) {
                     tabBarSymbol("fork.knife", color: colorScheme == .dark ? .loopYellow : .orange)
                     carbRequirementBadge
-                        .offset(x: (state.carbsRequired ?? 0) > 99 ? 10 : 5, y: -10)
+                        .offset(
+                            x: ((state.carbsRequired ?? 0) > 99 ? 10 : 5) + (usesBottomBar ? 6 : 0),
+                            y: -10
+                        )
                 }
             }
             .contextMenu {
@@ -1347,7 +1386,7 @@ extension Home {
         private func bolusTabItem() -> some View {
             let bolusInProgress = state.bolusProgress != nil
 
-            return tabBarButton {
+            return ToolbarEdgeAwareButton {
                 if bolusInProgress {
                     showBolusActiveAlert = true
                 } else {
@@ -1368,25 +1407,25 @@ extension Home {
         }
 
         private func manualTempTabItem() -> some View {
-            tabBarButton { state.showModal(for: .manualTempBasal) } icon: {
+            ToolbarEdgeAwareButton { state.showModal(for: .manualTempBasal) } icon: {
                 Image("bolus1")
                     .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 20, height: 20)
-                    .foregroundStyle(.insulin)
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(usesBottomBar ? Color.insulin : Color.primary)
             }
         }
 
         private func profileTabItem(isOverride: Bool) -> some View {
-            tabBarButton {
+            ToolbarEdgeAwareButton {
                 isOverride ? showCancelAlert.toggle() : state.showModal(for: .overrideProfilesConfig)
             } icon: {
                 tabBarSymbol(
                     isOverride ? "person.fill" : "person",
                     color: .purple,
                     active: isOverride
-                ).scaleEffect(isOverride ? 1.2 : 1.1)
+                )
             }
             .confirmationDialog("Cancel Profile Override", isPresented: $showCancelAlert) {
                 Button("Cancel Profile Override", role: .destructive) {
@@ -1404,7 +1443,7 @@ extension Home {
         }
 
         private func tempTargetTabItem(isTarget: Bool) -> some View {
-            tabBarButton {
+            ToolbarEdgeAwareButton {
                 isTarget ? showCancelTTAlert.toggle() : state.showModal(for: .addTempTarget)
             } icon: {
                 tabBarSymbol("target", color: .loopGreen, active: isTarget)
@@ -1418,7 +1457,7 @@ extension Home {
         }
 
         private func settingsTabItem() -> some View {
-            tabBarButton { state.showModal(for: .settings) } icon: {
+            ToolbarEdgeAwareButton { state.showModal(for: .settings) } icon: {
                 tabBarSymbol("gear", color: .gray)
             }
         }
@@ -1433,26 +1472,21 @@ extension Home {
             }
         }
 
-        @ViewBuilder private func tabBarButton<Icon: View>(
-            action: @escaping () -> Void,
-            @ViewBuilder icon: @escaping () -> Icon
-        ) -> some View {
-            if #available(iOS 27.1, *) {
-                ToolbarEdgeAwareButton(action: action, icon: icon)
-            } else {
-                Button(action: action) {
-                    icon()
-                }
-                .labelStyle(.iconOnly)
-            }
-        }
-
         /// Custom tabBar symbols. active: Bool indicating activated button.
-        private func tabBarSymbol(_ systemName: String, color: Color, size: CGFloat = 22, active: Bool = false) -> some View {
-            Image(systemName: systemName)
+        private func tabBarSymbol(_ systemName: String, color: Color, active: Bool = false) -> some View {
+            let symbolColor: Color = usesBottomBar ? color : .primary
+            return Image(systemName: systemName)
+                .resizable()
                 .symbolRenderingMode(.hierarchical)
-                .font(.system(size: size, weight: .medium))
-                .foregroundStyle(active ? color : .secondary)
+                .scaledToFit()
+                .fontWeight(.medium)
+                .frame(width: 22, height: 22)
+                .foregroundStyle(symbolColor)
+                .background {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(symbolColor.opacity(active ? 0.15 : 0))
+                        .frame(width: 40, height: 40)
+                }
         }
 
         private func isIphoneDuoScreen(for geo: GeometryProxy) -> Bool {
@@ -1485,6 +1519,43 @@ extension Home {
 
             settingsTabItem()
                 .accessibilityLabel("Settings")
+        }
+    }
+}
+
+private struct HomeScrollActivityModifier: ViewModifier {
+    @Binding var isScrolling: Bool
+    let scrollOffset: CGFloat
+    @State private var scrollEndTask: Task<Void, Never>?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .onScrollPhaseChange { _, phase in
+                    // Programmatic scrolling must not hide the bar when returning to the top.
+                    isScrolling = phase == .interacting || phase == .decelerating
+                }
+                .onDisappear {
+                    isScrolling = false
+                }
+        } else {
+            // Earlier systems infer the end of scrolling from a pause in offset changes.
+            content
+                .onChange(of: scrollOffset) { _, _ in
+                    scrollEndTask?.cancel()
+                    isScrolling = true
+                    scrollEndTask = Task { @MainActor in
+                        do {
+                            try await Task.sleep(for: .milliseconds(180))
+                            isScrolling = false
+                        } catch {}
+                    }
+                }
+                .onDisappear {
+                    scrollEndTask?.cancel()
+                    scrollEndTask = nil
+                    isScrolling = false
+                }
         }
     }
 }
