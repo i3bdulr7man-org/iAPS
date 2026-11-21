@@ -14,6 +14,12 @@
       location = "group:LibreTransmitter/LibreTransmitter.xcodeproj">
    </FileRef>
    <FileRef
+      location = "group:RoundWhiteDiscKit">
+   </FileRef>
+   <FileRef
+      location = "group:LibreLoop/LibreLoop.xcodeproj">
+   </FileRef>
+   <FileRef
       location = "group:G7SensorKit/G7SensorKit.xcodeproj">
    </FileRef>
    <FileRef

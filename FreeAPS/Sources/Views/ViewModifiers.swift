@@ -1,22 +1,39 @@
 import Combine
 import SwiftUI
 
-struct RoundedBackground: ViewModifier {
-    private let color: Color
-
-    init(color: Color = Color("CapsuleColor")) {
-        self.color = color
-    }
+struct GlassEffectWhenAvailable: ViewModifier {
+    let glassType: GlassType
 
     func body(content: Content) -> some View {
-        content
-            .padding()
-            .background(
-                Rectangle()
-                    // RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill()
-                    .foregroundColor(color)
-            )
+        content.glassEffectWhenAvailable(glassType, in: Capsule())
+    }
+
+    enum GlassType {
+        case identity
+        case clear
+        case regular
+        case none
+    }
+}
+
+struct ToolbarEdgeAwareButton<Icon: View>: View {
+    @Environment(\.usesBottomBar) private var usesBottomBar
+
+    let action: () -> Void
+    @ViewBuilder let icon: () -> Icon
+
+    var body: some View {
+        let isVertical = !usesBottomBar
+        let iconSize: CGFloat = isVertical ? 30 : 28
+        let tapSize: CGFloat = isVertical ? 30 : 44
+
+        Button(action: action) {
+            icon()
+                .frame(width: iconSize, height: iconSize)
+                .frame(minWidth: tapSize, maxWidth: isVertical ? tapSize : .infinity, minHeight: tapSize)
+                .contentShape(Rectangle())
+        }
+        .labelStyle(.iconOnly)
     }
 }
 
@@ -110,30 +127,24 @@ struct TestTube: View {
     let colourOfSubstance: Color
     let materialOpacity: CGFloat
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         UnevenRoundedRectangle.testTube
             .fill(
                 LinearGradient(
                     gradient: Gradient(stops: [
-                        Gradient.Stop(color: .white.opacity(opacity), location: amount),
+                        Gradient.Stop(
+                            color: (reduceTransparency && colorScheme == .light) ? .white
+                                .opacity(0.91) : (reduceTransparency && colorScheme == .dark) ? .white.opacity(0.15) : .clear,
+                            location: amount
+                        ),
                         Gradient.Stop(color: colourOfSubstance, location: amount)
                     ]),
                     startPoint: .top,
                     endPoint: .bottom
                 )
-            )
-            .overlay {
-                FrostedGlass(opacity: materialOpacity)
-            }
-            .shadow(
-                color: Color.black
-                    .opacity(
-                        colorScheme == .dark ? IAPSconfig.glassShadowOpacity : IAPSconfig.glassShadowOpacity / IAPSconfig
-                            .shadowFraction
-                    ),
-                radius: colorScheme == .dark ? 2.2 : 3
-            )
+            ).glassEffectWhenAvailable(.clear, in: UnevenRoundedRectangle.testTube)
     }
 }
 
@@ -169,10 +180,14 @@ struct ColouredBackground: View {
 
 struct LoopEllipse: View {
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     let stroke: Color
     var body: some View {
-        RoundedRectangle(cornerRadius: 15)
+        let shape = RoundedRectangle(cornerRadius: 15)
+        shape
             .stroke(stroke, lineWidth: colorScheme == .light ? 2 : 0.7)
+            .glassEffectWhenAvailable(reduceTransparency ? .regular : .clear, in: shape)
             .background(
                 RoundedRectangle(cornerRadius: 15)
                     .fill(colorScheme == .light ? .white : .black)
@@ -195,7 +210,7 @@ struct Sage: View {
         let scheme = colorScheme == .light ? Color(.systemGray5) : Color(.systemGray2)
 
         Circle()
-            .stroke(scheme, lineWidth: 5)
+            .stroke(scheme, lineWidth: 3)
             .background(
                 Circle()
                     .fill(
@@ -220,10 +235,14 @@ struct Sage: View {
 }
 
 struct TimeEllipse: View {
+    @Environment(\.colorScheme) var colorScheme
+
     let characters: Int
     var body: some View {
-        RoundedRectangle(cornerRadius: 15)
-            .fill(Color.gray).opacity(0.2)
+        let shape = RoundedRectangle(cornerRadius: 15)
+        shape
+            .fill((colorScheme == .light && iOS26) ? .ultraThickMaterial : .ultraThinMaterial)
+            .glassEffectWhenAvailable(.regular, in: shape)
             .frame(width: CGFloat(characters * 7), height: 25)
     }
 }
@@ -358,11 +377,27 @@ struct ClearButton: ViewModifier {
     }
 }
 
-extension View {
-    func roundedBackground() -> some View {
-        modifier(RoundedBackground())
+extension Shape {
+    @ViewBuilder func glassEffectWhenAvailable(
+        _ glassType: GlassEffectWhenAvailable.GlassType = .regular
+    ) -> some View {
+        if #available(iOS 26.0, *), glassType != .none {
+            let glass: Glass = { switch glassType {
+            case .identity: return .identity
+            case .clear: return .clear
+            default: return .regular
+            }
+            }()
+            glassEffect(glass, in: self)
+        } else {
+            background {
+                fill(.ultraThickMaterial.opacity(0.7))
+            }
+        }
     }
+}
 
+extension View {
     func addShadows() -> some View {
         modifier(AddShadow())
     }
@@ -373,6 +408,30 @@ extension View {
 
     func boolTag(_ bool: Bool) -> some View {
         modifier(BoolTag(bool: bool))
+    }
+
+    /// glassEffect and Glass available in iOS 26.0. Glass 0: .identity, 1: .clear, 2: .regular
+    func glassEffectWhenAvailable(_ glassType: GlassEffectWhenAvailable.GlassType = .regular) -> some View {
+        modifier(GlassEffectWhenAvailable(glassType: glassType))
+    }
+
+    @ViewBuilder func glassEffectWhenAvailable<S: Shape>(
+        _ glassType: GlassEffectWhenAvailable.GlassType = .regular,
+        in shape: S
+    ) -> some View {
+        if #available(iOS 26.0, *), glassType != .none {
+            let glass: Glass = { switch glassType {
+            case .identity: return .identity
+            case .clear: return .clear
+            default: return .regular
+            }
+            }()
+            glassEffect(glass, in: shape)
+        } else {
+            background {
+                shape.fill(.ultraThickMaterial.opacity(0.7))
+            }
+        }
     }
 
     func addBackground() -> some View {
@@ -411,6 +470,16 @@ extension View {
 
     func activeOverride(_ override: Bool) -> some View {
         modifier(ActiveOverride(override: override))
+    }
+
+    var iOS26: Bool {
+        guard #available(iOS 26.0, *) else { return false }
+        return true
+    }
+
+    var iOS27: Bool {
+        guard #available(iOS 27.1, *) else { return false }
+        return true
     }
 
     func asAny() -> AnyView { .init(self) }
